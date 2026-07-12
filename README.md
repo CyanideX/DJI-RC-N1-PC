@@ -22,7 +22,7 @@ pip install pyserial vgamepad
 3. Run `python main.py` (or `start.bat`)
 4. Launch your simulator
 
-The script auto-detects the correct COM port. Camera wheel left/right maps to Y/B buttons (restart race / recover drone in DCL).
+The script auto-detects the correct COM port.
 
 ## Troubleshooting
 
