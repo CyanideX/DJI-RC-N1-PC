@@ -9,11 +9,18 @@ Requirements:
     ViGEmBus driver installed
 """
 
+import ctypes
 import struct
 import sys
 import time
 import tkinter as tk
 from threading import Thread, Event
+
+# Enable per-monitor DPI awareness on Windows (fixes blurry text on 4K displays)
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(2)
+except (AttributeError, OSError):
+    pass
 
 import serial
 import serial.tools.list_ports
@@ -269,8 +276,8 @@ def serial_read_loop(port, stick_state, stop_event):
 
 VERSION = "3.2.0"
 
-CANVAS_SIZE = 180
-STICK_RADIUS = 8
+CANVAS_SIZE = 280
+STICK_RADIUS = 12
 BG_COLOR = "#1e1e2e"
 PANEL_COLOR = "#2a2a3c"
 ACCENT_COLOR = "#89b4fa"
@@ -284,13 +291,13 @@ class StickCanvas:
     """A canvas widget that draws a stick position as a circle on a crosshair."""
 
     def __init__(self, parent, label):
-        self.frame = tk.Frame(parent, bg=PANEL_COLOR)
-        self.frame.pack(side=tk.LEFT, padx=16, pady=8)
+        self.frame = tk.Frame(parent, bg=PANEL_COLOR, padx=20, pady=16)
+        self.frame.pack(side=tk.LEFT, padx=20, pady=12)
 
         tk.Label(
-            self.frame, text=label, font=("Segoe UI", 11, "bold"),
+            self.frame, text=label, font=("Segoe UI", 13, "bold"),
             fg=TEXT_COLOR, bg=PANEL_COLOR
-        ).pack(pady=(8, 4))
+        ).pack(pady=(12, 8))
 
         self.canvas = tk.Canvas(
             self.frame, width=CANVAS_SIZE, height=CANVAS_SIZE,
@@ -299,10 +306,10 @@ class StickCanvas:
         self.canvas.pack()
 
         self.value_label = tk.Label(
-            self.frame, text="X: 0  Y: 0", font=("Consolas", 10),
+            self.frame, text="X: 0  Y: 0", font=("Consolas", 12),
             fg=DIM_COLOR, bg=PANEL_COLOR
         )
-        self.value_label.pack(pady=(4, 8))
+        self.value_label.pack(pady=(8, 12))
 
         self._draw_background()
         self.dot = self.canvas.create_oval(0, 0, 0, 0, fill=ACCENT_COLOR, outline="")
@@ -364,50 +371,50 @@ class App:
     def _build_ui(self):
         # Status bar
         status_frame = tk.Frame(self.root, bg=BG_COLOR)
-        status_frame.pack(fill=tk.X, padx=16, pady=(12, 0))
+        status_frame.pack(fill=tk.X, padx=24, pady=(16, 0))
 
         self.status_dot = tk.Label(
-            status_frame, text="\u2B24", font=("Segoe UI", 10),
+            status_frame, text="\u2B24", font=("Segoe UI", 12),
             fg=DISCONNECTED_COLOR, bg=BG_COLOR
         )
         self.status_dot.pack(side=tk.LEFT)
 
         self.status_label = tk.Label(
-            status_frame, text="Disconnected", font=("Segoe UI", 11),
+            status_frame, text="Disconnected", font=("Segoe UI", 13),
             fg=TEXT_COLOR, bg=BG_COLOR
         )
         self.status_label.pack(side=tk.LEFT, padx=(6, 0))
 
         self.port_label = tk.Label(
-            status_frame, text="", font=("Consolas", 10),
+            status_frame, text="", font=("Consolas", 11),
             fg=DIM_COLOR, bg=BG_COLOR
         )
         self.port_label.pack(side=tk.RIGHT)
 
         # Separator
-        tk.Frame(self.root, bg=DIM_COLOR, height=1).pack(fill=tk.X, padx=16, pady=8)
+        tk.Frame(self.root, bg=DIM_COLOR, height=1).pack(fill=tk.X, padx=24, pady=12)
 
         # Stick visualization area
         sticks_frame = tk.Frame(self.root, bg=BG_COLOR)
-        sticks_frame.pack(padx=8, pady=(0, 8))
+        sticks_frame.pack(padx=16, pady=(0, 12))
 
         self.left_stick = StickCanvas(sticks_frame, "Left Stick")
         self.right_stick = StickCanvas(sticks_frame, "Right Stick")
 
         # Bottom bar (separator + device name / version)
-        tk.Frame(self.root, bg=DIM_COLOR, height=1).pack(fill=tk.X, padx=16, pady=(0, 6))
+        tk.Frame(self.root, bg=DIM_COLOR, height=1).pack(fill=tk.X, padx=24, pady=(0, 10))
 
         bottom_frame = tk.Frame(self.root, bg=BG_COLOR)
-        bottom_frame.pack(fill=tk.X, padx=16, pady=(0, 10))
+        bottom_frame.pack(fill=tk.X, padx=24, pady=(0, 14))
 
         self.device_label = tk.Label(
-            bottom_frame, text="", font=("Consolas", 9),
+            bottom_frame, text="", font=("Consolas", 10),
             fg=DIM_COLOR, bg=BG_COLOR, anchor="w"
         )
         self.device_label.pack(side=tk.LEFT)
 
         tk.Label(
-            bottom_frame, text=f"v{VERSION}", font=("Consolas", 9),
+            bottom_frame, text=f"v{VERSION}", font=("Consolas", 10),
             fg=DIM_COLOR, bg=BG_COLOR, anchor="e"
         ).pack(side=tk.RIGHT)
 
