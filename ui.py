@@ -274,7 +274,7 @@ def serial_read_loop(port, stick_state, stop_event):
 
 # --- UI ---
 
-VERSION = "3.2.0"
+VERSION = "3.2.1"
 
 CANVAS_SIZE = 300
 STICK_RADIUS = 12
