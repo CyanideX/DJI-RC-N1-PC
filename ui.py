@@ -359,6 +359,14 @@ class App:
         self.root.configure(bg=BG_COLOR)
         self.root.resizable(False, False)
 
+        # Window icon
+        import os
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.png")
+        if os.path.exists(icon_path):
+            icon = tk.PhotoImage(file=icon_path)
+            self.root.iconphoto(True, icon)
+            self._icon_ref = icon  # Prevent garbage collection
+
         self.stick_state = [0, 0, 0, 0, 0]
         self.stop_event = Event()
         self.disconnect_event = Event()
