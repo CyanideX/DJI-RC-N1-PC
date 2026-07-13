@@ -245,7 +245,7 @@ def serial_read_loop(port, stick_state, disconnect_event, stop_event, got_sticks
                 stick_state[LH] = clamp_stick(UINT16.unpack_from(data, 22)[0])
                 stick_state[CAM] = clamp_stick(UINT16.unpack_from(data, 25)[0])
                 got_sticks_event.set()
-    except (serial.SerialException, OSError):
+    except (serial.SerialException, OSError, TypeError):
         disconnect_event.set()
 
 
