@@ -11,12 +11,10 @@ Requirements:
 
 import ctypes
 import struct
-import sys
 import time
 import tkinter as tk
 from threading import Thread, Event
 
-# Enable system DPI awareness on Windows (sharp text, consistent size across monitors)
 try:
     ctypes.windll.shcore.SetProcessDpiAwareness(1)
 except (AttributeError, OSError):
@@ -26,8 +24,10 @@ import serial
 import serial.tools.list_ports
 import vgamepad as vg
 
+VERSION = "3.3.0"
 
-# CRC-16 lookup table (CCITT variant)
+# --- DUML Protocol ---
+
 CRC16_TABLE = (
     0x0000, 0x1189, 0x2312, 0x329B, 0x4624, 0x57AD, 0x6536, 0x74BF,
     0x8C48, 0x9DC1, 0xAF5A, 0xBED3, 0xCA6C, 0xDBE5, 0xE97E, 0xF8F7,
@@ -98,41 +98,31 @@ CRC8_TABLE = bytes([
     0xB6, 0xE8, 0x0A, 0x54, 0xD7, 0x89, 0x6B, 0x35,
 ])
 
-# DUML protocol constants
-CRC16_SEED = 0x3692
-CRC8_SEED = 0x77
 DUML_HEADER = 0x55
 DUML_MIN_PACKET_LEN = 13
 EXPECTED_STICK_PACKET_LEN = 38
 
-# Controller input range
 INPUT_CENTER = 1024
 INPUT_RANGE = 660
 GAMEPAD_MAX = 32767
-
-# Camera wheel thresholds
 CAMERA_BUTTON_THRESHOLD = 32000
 
-# Stick state indices
-RH = 0
-RV = 1
-LH = 2
-LV = 3
-CAM = 4
+# Stick state array indices
+RH, RV, LH, LV, CAM = 0, 1, 2, 3, 4
 
 UINT16 = struct.Struct('<H')
 
 
 def calc_crc16(packet, length):
-    crc = CRC16_SEED
+    crc = 0x3692
     table = CRC16_TABLE
     for i in range(length):
         crc = (crc >> 8) ^ table[(packet[i] ^ crc) & 0xFF]
     return crc
 
 
-def calc_header_crc8(packet, length):
-    crc = CRC8_SEED
+def calc_crc8(packet, length):
+    crc = 0x77
     table = CRC8_TABLE
     for i in range(length):
         crc = table[(packet[i] ^ crc) & 0xFF]
@@ -140,25 +130,20 @@ def calc_header_crc8(packet, length):
 
 
 def build_duml_packet(source, target, cmd_type, cmd_set, cmd_id, seq, payload=None):
-    length = DUML_MIN_PACKET_LEN
-    if payload is not None:
-        length += len(payload)
-
+    length = DUML_MIN_PACKET_LEN + (len(payload) if payload else 0)
     packet = bytearray(length + 2)
     packet[0] = DUML_HEADER
     packet[1] = length & 0xFF
     packet[2] = (length >> 8) | 0x04
-    packet[3] = calc_header_crc8(packet, 3)
+    packet[3] = calc_crc8(packet, 3)
     packet[4] = source
     packet[5] = target
     struct.pack_into('<H', packet, 6, seq)
     packet[8] = cmd_type
     packet[9] = cmd_set
     packet[10] = cmd_id
-
-    if payload is not None:
+    if payload:
         packet[11:11 + len(payload)] = payload
-
     crc = calc_crc16(packet, length)
     struct.pack_into('<H', packet, length, crc)
     return packet
@@ -173,32 +158,17 @@ def clamp_stick(raw):
     return output
 
 
-def find_dji_port():
-    ports = serial.tools.list_ports.comports(include_links=True)
-    for port in ports:
-        if "For Protocol" in (port.description or ""):
-            try:
-                ser = serial.Serial(port=port.name, baudrate=115200, timeout=1)
-                return ser, port.name, port.description
-            except (OSError, serial.SerialException):
-                return None, port.name, port.description
-    return None, None, None
-
-
 def read_duml_packet(port):
     b = port.read(1)
     if not b or b[0] != DUML_HEADER:
         return None
-
     length_bytes = port.read(2)
     if len(length_bytes) < 2:
         return None
-
     packet_length = (length_bytes[0] | (length_bytes[1] << 8)) & 0x03FF
     remaining = port.read(packet_length - 3)
     if len(remaining) < packet_length - 3:
         return None
-
     buffer = bytearray(packet_length)
     buffer[0] = DUML_HEADER
     buffer[1] = length_bytes[0]
@@ -207,14 +177,46 @@ def read_duml_packet(port):
     return buffer
 
 
+# Pre-built packets (static, RC doesn't validate sequence for polls)
+POLL_PACKET = build_duml_packet(0x0A, 0x06, 0x40, 0x06, 0x01, 0x34EB, bytearray())
+SIM_ENABLE_PACKET = build_duml_packet(0x0A, 0x06, 0x40, 0x06, 0x24, 0x34EB, bytearray([0x01]))
+
+
+# --- Worker Threads ---
+
+def serial_read_loop(port, stick_state, disconnect_event, stop_event):
+    """Polls the RC for stick data. Sets disconnect_event on serial loss."""
+    try:
+        port.write(SIM_ENABLE_PACKET)
+        while not stop_event.is_set():
+            port.write(POLL_PACKET)
+            data = read_duml_packet(port)
+            if data is None:
+                continue
+
+            if len(data) == 21:
+                stick_state[RH] = clamp_stick(UINT16.unpack_from(data, 11)[0])
+                stick_state[RV] = clamp_stick(UINT16.unpack_from(data, 13)[0])
+                stick_state[LV] = clamp_stick(UINT16.unpack_from(data, 15)[0])
+                stick_state[LH] = clamp_stick(UINT16.unpack_from(data, 17)[0])
+            elif len(data) == EXPECTED_STICK_PACKET_LEN:
+                stick_state[RH] = clamp_stick(UINT16.unpack_from(data, 13)[0])
+                stick_state[RV] = clamp_stick(UINT16.unpack_from(data, 16)[0])
+                stick_state[LV] = clamp_stick(UINT16.unpack_from(data, 19)[0])
+                stick_state[LH] = clamp_stick(UINT16.unpack_from(data, 22)[0])
+                stick_state[CAM] = clamp_stick(UINT16.unpack_from(data, 25)[0])
+    except (serial.SerialException, OSError):
+        disconnect_event.set()
+
+
 def gamepad_update_loop(gamepad, stick_state, stop_event):
+    """Pushes stick state to the virtual gamepad at ~100Hz."""
     prev_cam_state = 0
     btn_y = vg.XUSB_BUTTON.XUSB_GAMEPAD_Y
     btn_b = vg.XUSB_BUTTON.XUSB_GAMEPAD_B
 
     while not stop_event.is_set():
         time.sleep(0.01)
-
         gamepad.left_joystick(stick_state[LH], stick_state[LV])
         gamepad.right_joystick(stick_state[RH], stick_state[RV])
 
@@ -241,40 +243,7 @@ def gamepad_update_loop(gamepad, stick_state, stop_event):
         gamepad.update()
 
 
-def serial_read_loop(port, stick_state, stop_event):
-    """Background thread that polls the RC and updates stick_state."""
-    poll_packet = build_duml_packet(0x0A, 0x06, 0x40, 0x06, 0x01, 0x34EB, bytearray())
-    sim_enable_packet = build_duml_packet(0x0A, 0x06, 0x40, 0x06, 0x24, 0x34EB, bytearray([0x01]))
-
-    try:
-        port.write(sim_enable_packet)
-
-        while not stop_event.is_set():
-            port.write(poll_packet)
-            data = read_duml_packet(port)
-            if data is None:
-                continue
-
-            if len(data) == 21:
-                stick_state[RH] = clamp_stick(UINT16.unpack_from(data, 11)[0])
-                stick_state[RV] = clamp_stick(UINT16.unpack_from(data, 13)[0])
-                stick_state[LV] = clamp_stick(UINT16.unpack_from(data, 15)[0])
-                stick_state[LH] = clamp_stick(UINT16.unpack_from(data, 17)[0])
-
-            elif len(data) == EXPECTED_STICK_PACKET_LEN:
-                stick_state[RH] = clamp_stick(UINT16.unpack_from(data, 13)[0])
-                stick_state[RV] = clamp_stick(UINT16.unpack_from(data, 16)[0])
-                stick_state[LV] = clamp_stick(UINT16.unpack_from(data, 19)[0])
-                stick_state[LH] = clamp_stick(UINT16.unpack_from(data, 22)[0])
-                stick_state[CAM] = clamp_stick(UINT16.unpack_from(data, 25)[0])
-
-    except serial.SerialException:
-        pass
-
-
 # --- UI ---
-
-VERSION = "3.2.1"
 
 CANVAS_SIZE = 300
 STICK_RADIUS = 12
@@ -288,8 +257,6 @@ DISCONNECTED_COLOR = "#f38ba8"
 
 
 class StickCanvas:
-    """A canvas widget that draws a stick position as a circle on a crosshair."""
-
     def __init__(self, parent, label):
         self.frame = tk.Frame(parent, bg=PANEL_COLOR, padx=20, pady=16)
         self.frame.pack(side=tk.LEFT, padx=20, pady=12)
@@ -324,19 +291,16 @@ class StickCanvas:
         self.canvas.create_line(10, c, CANVAS_SIZE - 10, c, fill=DIM_COLOR, dash=(2, 4))
 
     def update(self, x, y):
-        """Update dot position. x/y in range [-32768, 32767]."""
         center = CANVAS_SIZE // 2
-        radius = (CANVAS_SIZE // 2) - 10
+        radius = center - 10
         nx = x / 32767.0
         ny = -y / 32767.0
         mag = (nx * nx + ny * ny) ** 0.5
         if mag > 1.0:
             nx /= mag
             ny /= mag
-
         px = center + nx * radius
         py = center + ny * radius
-
         self.canvas.coords(
             self.dot,
             px - STICK_RADIUS, py - STICK_RADIUS,
@@ -352,11 +316,10 @@ class App:
         self.root.configure(bg=BG_COLOR)
         self.root.resizable(False, False)
 
-        self.stop_event = Event()
         self.stick_state = [0, 0, 0, 0, 0]
+        self.stop_event = Event()
+        self.disconnect_event = Event()
         self.port = None
-        self.port_name = None
-        self.port_description = None
         self.connected = False
 
         self._build_ui()
@@ -390,14 +353,14 @@ class App:
         # Separator
         tk.Frame(self.root, bg=DIM_COLOR, height=1).pack(fill=tk.X, padx=20, pady=10)
 
-        # Stick visualization area
+        # Stick visualization
         sticks_frame = tk.Frame(self.root, bg=BG_COLOR)
         sticks_frame.pack(padx=12, pady=(0, 10))
 
         self.left_stick = StickCanvas(sticks_frame, "Left Stick")
         self.right_stick = StickCanvas(sticks_frame, "Right Stick")
 
-        # Bottom bar (separator + device name / version)
+        # Bottom bar
         tk.Frame(self.root, bg=DIM_COLOR, height=1).pack(fill=tk.X, padx=20, pady=(0, 8))
 
         bottom_frame = tk.Frame(self.root, bg=BG_COLOR)
@@ -415,52 +378,73 @@ class App:
         ).pack(side=tk.RIGHT)
 
     def _try_connect(self):
-        port, name, description = find_dji_port()
-        if port is not None:
-            self.port = port
-            self.port_name = name
-            self.port_description = description
-            self.connected = True
-            self._update_status(True, name)
-            self.device_label.config(text=description or "")
+        """Scan for the DJI port. On success, start worker threads."""
+        ports = serial.tools.list_ports.comports(include_links=True)
+        for p in ports:
+            if "For Protocol" not in (p.description or ""):
+                continue
+            try:
+                self.port = serial.Serial(port=p.name, baudrate=115200, timeout=1)
+            except (OSError, serial.SerialException):
+                continue
 
-            # Start virtual gamepad
+            self.connected = True
+            self.disconnect_event.clear()
+            self._set_status(True, p.name, p.description)
+
+            # Virtual gamepad
             self.gamepad = vg.VX360Gamepad()
             self.gamepad.reset()
             self.gamepad.update()
 
-            # Start worker threads
-            self.serial_thread = Thread(
+            Thread(
                 target=serial_read_loop,
-                args=(self.port, self.stick_state, self.stop_event),
+                args=(self.port, self.stick_state, self.disconnect_event, self.stop_event),
                 daemon=True,
-            )
-            self.serial_thread.start()
+            ).start()
 
-            self.gamepad_thread = Thread(
+            Thread(
                 target=gamepad_update_loop,
                 args=(self.gamepad, self.stick_state, self.stop_event),
                 daemon=True,
-            )
-            self.gamepad_thread.start()
-        else:
-            self._update_status(False, name)
-            self.device_label.config(text="")
-            # Retry connection every 2 seconds
-            self.root.after(2000, self._try_connect)
+            ).start()
+            return
 
-    def _update_status(self, connected, port_name):
+        # Not found, retry
+        self._set_status(False)
+        self.root.after(2000, self._try_connect)
+
+    def _handle_disconnect(self):
+        """Clean up after a serial disconnect and begin reconnection."""
+        self.connected = False
+        if self.port and self.port.is_open:
+            self.port.close()
+        self.port = None
+
+        # Zero the sticks so the gamepad and UI don't freeze at last values
+        for i in range(5):
+            self.stick_state[i] = 0
+
+        self._set_status(False)
+        self.root.after(2000, self._try_connect)
+
+    def _set_status(self, connected, port_name=None, description=None):
         if connected:
             self.status_dot.config(fg=CONNECTED_COLOR)
             self.status_label.config(text="Connected")
             self.port_label.config(text=port_name or "")
+            self.device_label.config(text=description or "")
         else:
             self.status_dot.config(fg=DISCONNECTED_COLOR)
             self.status_label.config(text="Disconnected")
             self.port_label.config(text="Searching...")
+            self.device_label.config(text="")
 
     def _poll_ui(self):
-        """Update the stick canvases from shared state at ~30fps."""
+        """Update stick canvases at ~30fps and check for disconnection."""
+        if self.connected and self.disconnect_event.is_set():
+            self._handle_disconnect()
+
         self.left_stick.update(self.stick_state[LH], self.stick_state[LV])
         self.right_stick.update(self.stick_state[RH], self.stick_state[RV])
         self.root.after(33, self._poll_ui)
