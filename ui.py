@@ -112,6 +112,38 @@ RH, RV, LH, LV, CAM = 0, 1, 2, 3, 4
 
 UINT16 = struct.Struct('<H')
 
+# Sequence counter matching main_old.py's global state
+_seq_number = 0x34EB
+
+
+def send_duml(port, source, target, cmd_type, cmd_set, cmd_id, payload=None):
+    """Build and send a DUML packet. Identical to main_old.py's implementation."""
+    global _seq_number
+
+    length = DUML_MIN_PACKET_LEN
+    if payload is not None:
+        length += len(payload)
+
+    packet = bytearray([DUML_HEADER])
+    packet += struct.pack('B', length & 0xFF)
+    packet += struct.pack('B', (length >> 8) | 0x04)
+    packet += struct.pack('B', calc_crc8(packet, 3))
+    packet += struct.pack('B', source)
+    packet += struct.pack('B', target)
+    packet += struct.pack('<H', _seq_number)
+    packet += struct.pack('B', cmd_type)
+    packet += struct.pack('B', cmd_set)
+    packet += struct.pack('B', cmd_id)
+
+    if payload is not None:
+        packet += payload
+
+    crc = calc_crc16(packet, len(packet))
+    packet += struct.pack('<H', crc)
+    port.write(packet)
+
+    _seq_number = (_seq_number + 1) & 0xFFFF
+
 
 def calc_crc16(packet, length):
     crc = 0x3692
@@ -177,19 +209,25 @@ def read_duml_packet(port):
     return buffer
 
 
-# Pre-built packets (static, RC doesn't validate sequence for polls)
-POLL_PACKET = build_duml_packet(0x0A, 0x06, 0x40, 0x06, 0x01, 0x34EB, bytearray())
-SIM_ENABLE_PACKET = build_duml_packet(0x0A, 0x06, 0x40, 0x06, 0x24, 0x34EB, bytearray([0x01]))
+# Pre-built sim-enable (sent once per connection, needs unique seq)
+# Poll packets are built fresh each iteration with incrementing seq
 
 
 # --- Worker Threads ---
 
-def serial_read_loop(port, stick_state, disconnect_event, stop_event):
+def serial_read_loop(port, stick_state, disconnect_event, stop_event, got_sticks_event):
     """Polls the RC for stick data. Sets disconnect_event on serial loss."""
     try:
-        port.write(SIM_ENABLE_PACKET)
+        last_sim_enable = 0
         while not stop_event.is_set():
-            port.write(POLL_PACKET)
+            # Keep re-sending sim-enable every 3s until we get stick data
+            if not got_sticks_event.is_set():
+                now = time.time()
+                if now - last_sim_enable >= 3.0:
+                    send_duml(port, 0x0A, 0x06, 0x40, 0x06, 0x24, bytearray([0x01]))
+                    last_sim_enable = now
+
+            send_duml(port, 0x0A, 0x06, 0x40, 0x06, 0x01, bytearray())
             data = read_duml_packet(port)
             if data is None:
                 continue
@@ -199,12 +237,14 @@ def serial_read_loop(port, stick_state, disconnect_event, stop_event):
                 stick_state[RV] = clamp_stick(UINT16.unpack_from(data, 13)[0])
                 stick_state[LV] = clamp_stick(UINT16.unpack_from(data, 15)[0])
                 stick_state[LH] = clamp_stick(UINT16.unpack_from(data, 17)[0])
+                got_sticks_event.set()
             elif len(data) == EXPECTED_STICK_PACKET_LEN:
                 stick_state[RH] = clamp_stick(UINT16.unpack_from(data, 13)[0])
                 stick_state[RV] = clamp_stick(UINT16.unpack_from(data, 16)[0])
                 stick_state[LV] = clamp_stick(UINT16.unpack_from(data, 19)[0])
                 stick_state[LH] = clamp_stick(UINT16.unpack_from(data, 22)[0])
                 stick_state[CAM] = clamp_stick(UINT16.unpack_from(data, 25)[0])
+                got_sticks_event.set()
     except (serial.SerialException, OSError):
         disconnect_event.set()
 
@@ -254,6 +294,9 @@ TEXT_COLOR = "#cdd6f4"
 DIM_COLOR = "#6c7086"
 CONNECTED_COLOR = "#a6e3a1"
 DISCONNECTED_COLOR = "#f38ba8"
+
+
+WAITING_COLOR = "#f9e2af"
 
 
 class StickCanvas:
@@ -319,8 +362,10 @@ class App:
         self.stick_state = [0, 0, 0, 0, 0]
         self.stop_event = Event()
         self.disconnect_event = Event()
+        self.got_sticks_event = Event()
         self.port = None
         self.connected = False
+        self._got_sticks = False  # True once we receive stick data
 
         self._build_ui()
         self._try_connect()
@@ -389,17 +434,22 @@ class App:
                 continue
 
             self.connected = True
+            self._got_sticks = False
             self.disconnect_event.clear()
-            self._set_status(True, p.name, p.description)
+            self._set_status(True, p.name, p.description, waiting=True)
 
-            # Virtual gamepad
+            # Match main_old.py: create gamepad, sleep, then sim-enable with unique seq
             self.gamepad = vg.VX360Gamepad()
             self.gamepad.reset()
             self.gamepad.update()
+            time.sleep(0.5)
+
+            # Send sim-enable with its own sequence number
+            send_duml(self.port, 0x0A, 0x06, 0x40, 0x06, 0x24, bytearray([0x01]))
 
             Thread(
                 target=serial_read_loop,
-                args=(self.port, self.stick_state, self.disconnect_event, self.stop_event),
+                args=(self.port, self.stick_state, self.disconnect_event, self.stop_event, self.got_sticks_event),
                 daemon=True,
             ).start()
 
@@ -417,19 +467,25 @@ class App:
     def _handle_disconnect(self):
         """Clean up after a serial disconnect and begin reconnection."""
         self.connected = False
+        self._got_sticks = False
+        self.got_sticks_event.clear()
         if self.port and self.port.is_open:
             self.port.close()
         self.port = None
 
-        # Zero the sticks so the gamepad and UI don't freeze at last values
         for i in range(5):
             self.stick_state[i] = 0
 
         self._set_status(False)
         self.root.after(2000, self._try_connect)
 
-    def _set_status(self, connected, port_name=None, description=None):
-        if connected:
+    def _set_status(self, connected, port_name=None, description=None, waiting=False):
+        if connected and waiting:
+            self.status_dot.config(fg=WAITING_COLOR)
+            self.status_label.config(text="Waiting for input...")
+            self.port_label.config(text=port_name or "")
+            self.device_label.config(text=description or "")
+        elif connected:
             self.status_dot.config(fg=CONNECTED_COLOR)
             self.status_label.config(text="Connected")
             self.port_label.config(text=port_name or "")
@@ -437,13 +493,19 @@ class App:
         else:
             self.status_dot.config(fg=DISCONNECTED_COLOR)
             self.status_label.config(text="Disconnected")
-            self.port_label.config(text="Searching...")
+            self.port_label.config(text="Plug in controller and THEN power on...")
             self.device_label.config(text="")
 
     def _poll_ui(self):
         """Update stick canvases at ~30fps and check for disconnection."""
         if self.connected and self.disconnect_event.is_set():
             self._handle_disconnect()
+
+        # Transition from "Waiting for input" to "Connected" once sticks respond
+        if self.connected and not self._got_sticks and self.got_sticks_event.is_set():
+            self._got_sticks = True
+            self.status_dot.config(fg=CONNECTED_COLOR)
+            self.status_label.config(text="Connected")
 
         self.left_stick.update(self.stick_state[LH], self.stick_state[LV])
         self.right_stick.update(self.stick_state[RH], self.stick_state[RV])
