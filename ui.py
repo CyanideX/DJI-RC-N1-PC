@@ -322,26 +322,44 @@ class StickCanvas:
         self.value_label.pack(pady=(8, 10))
 
         self._draw_background()
+        # Ghost dot shows true position in the square deadzone area
+        self.ghost_dot = self.canvas.create_oval(0, 0, 0, 0, fill="", outline=ACCENT_COLOR, width=1, state="hidden")
+        # Main dot is clamped to the circle
         self.dot = self.canvas.create_oval(0, 0, 0, 0, fill=ACCENT_COLOR, outline="")
 
     def _draw_background(self):
         c = CANVAS_SIZE // 2
+        margin = 10
+        # Square boundary (full stick range)
+        self.canvas.create_rectangle(
+            margin, margin, CANVAS_SIZE - margin, CANVAS_SIZE - margin,
+            outline=DIM_COLOR, width=1, dash=(2, 4)
+        )
+        # Circle boundary (normalized unit circle)
         self.canvas.create_oval(
-            10, 10, CANVAS_SIZE - 10, CANVAS_SIZE - 10,
+            margin, margin, CANVAS_SIZE - margin, CANVAS_SIZE - margin,
             outline=DIM_COLOR, width=1
         )
-        self.canvas.create_line(c, 10, c, CANVAS_SIZE - 10, fill=DIM_COLOR, dash=(2, 4))
-        self.canvas.create_line(10, c, CANVAS_SIZE - 10, c, fill=DIM_COLOR, dash=(2, 4))
+        # Crosshair
+        self.canvas.create_line(c, margin, c, CANVAS_SIZE - margin, fill=DIM_COLOR, dash=(2, 4))
+        self.canvas.create_line(margin, c, CANVAS_SIZE - margin, c, fill=DIM_COLOR, dash=(2, 4))
 
     def update(self, x, y):
         center = CANVAS_SIZE // 2
         radius = center - 10
-        nx = x / 32767.0
-        ny = -y / 32767.0
+        # Raw normalized position (square range)
+        raw_nx = x / 32767.0
+        raw_ny = -y / 32767.0
+
+        # Clamped to unit circle for main dot
+        nx = raw_nx
+        ny = raw_ny
         mag = (nx * nx + ny * ny) ** 0.5
         if mag > 1.0:
             nx /= mag
             ny /= mag
+
+        # Main dot (circle-clamped)
         px = center + nx * radius
         py = center + ny * radius
         self.canvas.coords(
@@ -349,6 +367,23 @@ class StickCanvas:
             px - STICK_RADIUS, py - STICK_RADIUS,
             px + STICK_RADIUS, py + STICK_RADIUS,
         )
+
+        # Ghost dot (true square position, only visible when outside circle)
+        if mag > 1.0:
+            # Clamp to square bounds [-1, 1]
+            sq_nx = max(-1.0, min(1.0, raw_nx))
+            sq_ny = max(-1.0, min(1.0, raw_ny))
+            gx = center + sq_nx * radius
+            gy = center + sq_ny * radius
+            gr = STICK_RADIUS - 2
+            self.canvas.coords(
+                self.ghost_dot,
+                gx - gr, gy - gr, gx + gr, gy + gr,
+            )
+            self.canvas.itemconfigure(self.ghost_dot, state="normal")
+        else:
+            self.canvas.itemconfigure(self.ghost_dot, state="hidden")
+
         self.value_label.config(text=f"X:{x:+6d}  Y:{y:+6d}")
 
 
