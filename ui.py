@@ -10,6 +10,7 @@ Requirements:
 """
 
 import ctypes
+import os
 import struct
 import time
 import tkinter as tk
@@ -161,26 +162,6 @@ def calc_crc8(packet, length):
     return crc
 
 
-def build_duml_packet(source, target, cmd_type, cmd_set, cmd_id, seq, payload=None):
-    length = DUML_MIN_PACKET_LEN + (len(payload) if payload else 0)
-    packet = bytearray(length + 2)
-    packet[0] = DUML_HEADER
-    packet[1] = length & 0xFF
-    packet[2] = (length >> 8) | 0x04
-    packet[3] = calc_crc8(packet, 3)
-    packet[4] = source
-    packet[5] = target
-    struct.pack_into('<H', packet, 6, seq)
-    packet[8] = cmd_type
-    packet[9] = cmd_set
-    packet[10] = cmd_id
-    if payload:
-        packet[11:11 + len(payload)] = payload
-    crc = calc_crc16(packet, length)
-    struct.pack_into('<H', packet, length, crc)
-    return packet
-
-
 def clamp_stick(raw):
     output = (raw - INPUT_CENTER) * GAMEPAD_MAX // INPUT_RANGE
     if output > 32767:
@@ -207,10 +188,6 @@ def read_duml_packet(port):
     buffer[2] = length_bytes[1]
     buffer[3:] = remaining
     return buffer
-
-
-# Pre-built sim-enable (sent once per connection, needs unique seq)
-# Poll packets are built fresh each iteration with incrementing seq
 
 
 # --- Worker Threads ---
@@ -294,8 +271,6 @@ TEXT_COLOR = "#cdd6f4"
 DIM_COLOR = "#6c7086"
 CONNECTED_COLOR = "#40d672"
 DISCONNECTED_COLOR = "#f5395a"
-
-
 WAITING_COLOR = "#f5c542"
 
 
@@ -395,7 +370,6 @@ class App:
         self.root.resizable(False, False)
 
         # Window icon
-        import os
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.png")
         if os.path.exists(icon_path):
             icon = tk.PhotoImage(file=icon_path)
@@ -403,12 +377,12 @@ class App:
             self._icon_ref = icon  # Prevent garbage collection
 
         self.stick_state = [0, 0, 0, 0, 0]
-        self.stop_event = Event()
         self.disconnect_event = Event()
         self.got_sticks_event = Event()
         self.port = None
         self.connected = False
-        self._got_sticks = False  # True once we receive stick data
+        self._got_sticks = False
+        self._session_stop = None  # Per-connection stop event for worker threads
 
         self._build_ui()
         self._try_connect()
@@ -490,15 +464,18 @@ class App:
             # Send sim-enable with its own sequence number
             send_duml(self.port, 0x0A, 0x06, 0x40, 0x06, 0x24, bytearray([0x01]))
 
+            # Fresh stop event per connection cycle
+            self._session_stop = Event()
+
             Thread(
                 target=serial_read_loop,
-                args=(self.port, self.stick_state, self.disconnect_event, self.stop_event, self.got_sticks_event),
+                args=(self.port, self.stick_state, self.disconnect_event, self._session_stop, self.got_sticks_event),
                 daemon=True,
             ).start()
 
             Thread(
                 target=gamepad_update_loop,
-                args=(self.gamepad, self.stick_state, self.stop_event),
+                args=(self.gamepad, self.stick_state, self._session_stop),
                 daemon=True,
             ).start()
             return
@@ -512,6 +489,11 @@ class App:
         self.connected = False
         self._got_sticks = False
         self.got_sticks_event.clear()
+
+        # Stop current session's threads
+        if self._session_stop:
+            self._session_stop.set()
+
         if self.port and self.port.is_open:
             self.port.close()
         self.port = None
@@ -555,7 +537,8 @@ class App:
         self.root.after(33, self._poll_ui)
 
     def _on_close(self):
-        self.stop_event.set()
+        if self._session_stop:
+            self._session_stop.set()
         if self.port and self.port.is_open:
             self.port.close()
         self.root.destroy()
