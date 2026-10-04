@@ -15,6 +15,8 @@ public partial class MainWindow : FluentWindow
     private const int WmDeviceChange = 0x0219;
 
     private readonly HomePage _home = new();
+    private readonly MappingPage _mapping = new();
+    private readonly TuningPage _tuning = new();
     private readonly DiagnosticsPage _diagnostics = new();
     private readonly SettingsPage _settings = new();
     private bool _reallyClose;
@@ -60,12 +62,12 @@ public partial class MainWindow : FluentWindow
 
     private void OnNavClicked(object sender, RoutedEventArgs e)
     {
-        if (sender == HomeNav)
-            Navigate(_home);
-        else if (sender == DiagnosticsNav)
-            Navigate(_diagnostics);
-        else
-            Navigate(_settings);
+        UserControl page = sender == HomeNav ? _home
+            : sender == MappingNav ? _mapping
+            : sender == TuningNav ? _tuning
+            : sender == DiagnosticsNav ? _diagnostics
+            : _settings;
+        Navigate(page);
     }
 
     private void Navigate(UserControl page)
@@ -77,6 +79,8 @@ public partial class MainWindow : FluentWindow
         PageHost.Content = page;
         PageScroll.ScrollToTop();
         HomeNav.Tag = page == _home;
+        MappingNav.Tag = page == _mapping;
+        TuningNav.Tag = page == _tuning;
         DiagnosticsNav.Tag = page == _diagnostics;
         SettingsNav.Tag = page == _settings;
     }

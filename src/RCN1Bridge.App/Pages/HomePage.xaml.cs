@@ -7,6 +7,7 @@ using RCN1Bridge.App.Services;
 using RCN1Bridge.Core.Device;
 using RCN1Bridge.Core.Diagnostics;
 using RCN1Bridge.Core.Input;
+using RCN1Bridge.Core.Mapping;
 using RCN1Bridge.Core.Protocol;
 using Wpf.Ui.Controls;
 using TextBlock = Wpf.Ui.Controls.TextBlock;
@@ -15,8 +16,6 @@ namespace RCN1Bridge.App.Pages;
 
 public partial class HomePage : UserControl
 {
-    private readonly DispatcherTimer _frameTimer = new(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(16) };
-    private readonly DispatcherTimer _statsTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private long _lastSequence = -1;
     private long _lastFrames;
     private long _lastStatsTimestamp;
@@ -27,26 +26,14 @@ public partial class HomePage : UserControl
     {
         InitializeComponent();
         SendToggle.IsChecked = App.Engine.OutputEnabled;
-        _frameTimer.Tick += (_, _) => RenderInput();
-        _statsTimer.Tick += (_, _) =>
+        _ = new LiveTimer(this, TimeSpan.FromMilliseconds(16), RenderInput, DispatcherPriority.Render);
+        _ = new LiveTimer(this, TimeSpan.FromMilliseconds(500), () =>
         {
             RenderStats();
             RenderStatus();
-        };
-        Loaded += (_, _) =>
-        {
-            App.Engine.StatusChanged += OnStatusChanged;
-            RenderStatus();
-            RenderStats();
-            _frameTimer.Start();
-            _statsTimer.Start();
-        };
-        Unloaded += (_, _) =>
-        {
-            App.Engine.StatusChanged -= OnStatusChanged;
-            _frameTimer.Stop();
-            _statsTimer.Stop();
-        };
+        });
+        Loaded += (_, _) => App.Engine.StatusChanged += OnStatusChanged;
+        Unloaded += (_, _) => App.Engine.StatusChanged -= OnStatusChanged;
     }
 
     private void OnStatusChanged(LinkStatus _) => Dispatcher.BeginInvoke(RenderStatus);
@@ -172,14 +159,15 @@ public partial class HomePage : UserControl
 
         var p = input.Processed;
         var r = input.Raw;
-        var processor = App.Engine.Processor;
-        LeftStick.Update(p.LeftX, p.LeftY, processor.Left.Deadzone);
-        RightStick.Update(p.RightX, p.RightY, processor.Right.Deadzone);
+        var tuning = App.Engine.Processor.Tuning;
+        LeftStick.Update(p.LeftX, p.LeftY, tuning.Left.Deadzone);
+        RightStick.Update(p.RightX, p.RightY, tuning.Right.Deadzone);
         LeftReadout.Text = $"X {Axis(p.LeftX)}  Y {Axis(p.LeftY)}\nraw {r.LeftH} / {r.LeftV}";
         RightReadout.Text = $"X {Axis(p.RightX)}  Y {Axis(p.RightY)}\nraw {r.RightH} / {r.RightV}";
 
         RenderButtons(input.Buttons);
-        Dial.Update(p.Dial);
+        var mapping = App.Settings.Mapping;
+        Dial.Update(p.Dial, App.Settings.MappingEnabled && mapping.Dial.Target == AxisTarget.Buttons ? mapping.ButtonThreshold : 0);
         DialReadout.Text = !r.HasDial
             ? "This controller hasn't reported the dial yet."
             : $"{Axis(p.Dial)}  raw {r.Dial}";

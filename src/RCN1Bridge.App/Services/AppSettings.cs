@@ -1,7 +1,10 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Windows.Threading;
 using RCN1Bridge.Core.Diagnostics;
+using RCN1Bridge.Core.Input;
+using RCN1Bridge.Core.Mapping;
 
 namespace RCN1Bridge.App.Services;
 
@@ -21,16 +24,29 @@ public sealed class AppSettings
 
     private static string FilePath => Path.Combine(Folder, "settings.json");
 
+    private DispatcherTimer? _saveTimer;
+
     public bool KeepInTray { get; set; } = true;
     public bool StartWithWindows { get; set; }
     public AppTheme Theme { get; set; } = AppTheme.System;
+
+    // Off means the engine skips mapping entirely and sends the sticks straight through
+    public bool MappingEnabled { get; set; }
+    public MappingProfile Mapping { get; set; } = MappingProfile.Default;
+    public bool TuningEnabled { get; set; }
+    public TuningProfile Tuning { get; set; } = TuningProfile.Default;
 
     public static AppSettings Load()
     {
         try
         {
             if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath), Json) ?? new AppSettings();
+            {
+                var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath), Json) ?? new AppSettings();
+                settings.Mapping ??= MappingProfile.Default;
+                settings.Tuning ??= TuningProfile.Default;
+                return settings;
+            }
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
@@ -41,6 +57,7 @@ public sealed class AppSettings
 
     public void Save()
     {
+        _saveTimer?.Stop();
         try
         {
             Directory.CreateDirectory(Folder);
@@ -50,5 +67,23 @@ public sealed class AppSettings
         {
             Log.Warn($"Couldn't save settings: {ex.Message}");
         }
+    }
+
+    // Sliders change on every pixel of a drag
+    public void SaveSoon()
+    {
+        if (_saveTimer is null)
+        {
+            _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _saveTimer.Tick += (_, _) => Save();
+        }
+        _saveTimer.Stop();
+        _saveTimer.Start();
+    }
+
+    public void Flush()
+    {
+        if (_saveTimer?.IsEnabled == true)
+            Save();
     }
 }

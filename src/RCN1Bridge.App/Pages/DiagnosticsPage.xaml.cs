@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -32,7 +33,11 @@ public partial class DiagnosticsPage : UserControl
     private static readonly TimeSpan CaptureLength = TimeSpan.FromSeconds(1.5);
     private static readonly TimeSpan HighlightFor = TimeSpan.FromMilliseconds(500);
 
-    private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(100) };
+    private static readonly string[] Hex = Enumerable.Range(0, 256).Select(i => i.ToString("X2")).ToArray();
+
+    private readonly Dictionary<string, FrameRow> _rows = [];
+    private readonly ChannelSlot[] _slots = new ChannelSlot[StickDecoder.SlotCount];
+    private readonly StringBuilder _slotText = new();
     private readonly Dictionary<string, long> _previousCounts = [];
     private readonly Dictionary<string, string> _rates = [];
     private readonly Dictionary<string, Button> _stepButtons = [];
@@ -55,14 +60,7 @@ public partial class DiagnosticsPage : UserControl
         RefreshStepButtons();
 
         LogBox.PreviewMouseWheel += PassWheelAtEdges;
-        _timer.Tick += (_, _) => Refresh();
-        Loaded += (_, _) =>
-        {
-            _tick = 0;
-            Refresh();
-            _timer.Start();
-        };
-        Unloaded += (_, _) => _timer.Stop();
+        _ = new LiveTimer(this, TimeSpan.FromMilliseconds(100), Refresh);
     }
 
     private void Refresh()
@@ -99,6 +97,15 @@ public partial class DiagnosticsPage : UserControl
         }
     }
 
+    private sealed class FrameRow
+    {
+        public required Grid Root;
+        public required TextBlock Count;
+        public required TextBlock Rate;
+        public required Run[] Bytes;
+        public required TextBlock Slots;
+    }
+
     private void RefreshFrames()
     {
         var stats = App.Engine.Frames.Snapshot();
@@ -106,58 +113,102 @@ public partial class DiagnosticsPage : UserControl
 
         var hot = TryFindResource("AccentFillColorDefaultBrush") as Brush;
         var onHot = TryFindResource("TextOnAccentFillColorPrimaryBrush") as Brush;
-        var noise = TryFindResource("TextFillColorTertiaryBrush") as Brush;
-        var mono = (FontFamily)FindResource("MonoFont");
         long now = Stopwatch.GetTimestamp();
 
-        FrameRows.Children.Clear();
-        foreach (var f in stats)
+        bool reorder = stats.Count != FrameRows.Children.Count;
+        for (int r = 0; r < stats.Count; r++)
         {
+            var f = stats[r];
             string id = $"{f.CommandSet:X2}{f.CommandId:X2}{f.Sender:X2}{f.Receiver:X2}{f.Length}";
-            var row = new Grid { Margin = new Thickness(0, 5, 0, 5) };
-            foreach (double width in new[] { 110.0, 60, 90, 60 })
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(width) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            if (!_rows.TryGetValue(id, out var row))
+            {
+                _rows[id] = row = BuildRow(f);
+                reorder = true;
+            }
+            else if (!reorder && FrameRows.Children[r] != row.Root)
+                reorder = true;
 
-            AddCell(row, 0, new TextBlock { Text = $"{f.CommandSet:X2}/{f.CommandId:X2} {f.Sender:X2}>{f.Receiver:X2}", FontFamily = mono });
-            AddCell(row, 1, new TextBlock { Text = $"{f.Length} B" });
-            AddCell(row, 2, new TextBlock { Text = f.Count.ToString("N0") });
-            AddCell(row, 3, new TextBlock { Text = _rates.GetValueOrDefault(id, "") });
-
-            var hex = new System.Windows.Controls.TextBlock { FontFamily = mono, FontSize = 12, TextWrapping = TextWrapping.Wrap };
+            row.Count.Text = f.Count.ToString("N0");
+            row.Rate.Text = _rates.GetValueOrDefault(id, "");
             for (int i = 0; i < f.LastFrame.Length; i++)
             {
-                var run = new Run(f.LastFrame[i].ToString("X2"));
+                var run = row.Bytes[i];
+                string text = Hex[f.LastFrame[i]];
+                if (run.Text != text)
+                    run.Text = text;
                 if (FrameStats.IsNoiseByte(i, f.Length))
-                    run.Foreground = noise;
-                else if (f.ChangedAt[i] != 0 && Stopwatch.GetElapsedTime(f.ChangedAt[i], now) < HighlightFor)
+                    continue;
+                bool lit = f.ChangedAt[i] != 0 && Stopwatch.GetElapsedTime(f.ChangedAt[i], now) < HighlightFor;
+                if (lit != (run.Background is not null))
                 {
-                    run.Background = hot;
-                    run.Foreground = onHot;
+                    run.Background = lit ? hot : null;
+                    if (lit)
+                        run.Foreground = onHot;
+                    else
+                        run.ClearValue(TextElement.ForegroundProperty);
                 }
-                hex.Inlines.Add(run);
-                hex.Inlines.Add(new Run(" "));
             }
 
-            var detail = new StackPanel();
-            detail.Children.Add(hex);
-            var slots = new ChannelSlot[StickDecoder.SlotCount];
-            int count = StickDecoder.DecodeSlots(f.LastFrame, slots);
+            int count = StickDecoder.DecodeSlots(f.LastFrame, _slots);
             if (count > 0)
             {
-                detail.Children.Add(new TextBlock
-                {
-                    Text = "Slots  " + string.Join("   ", slots.Take(count).Select((s, i) => $"{i}:{s.Value}")),
-                    FontFamily = mono,
-                    FontTypography = FontTypography.Caption,
-                    Appearance = TextColor.Secondary,
-                    Margin = new Thickness(0, 4, 0, 0),
-                    TextWrapping = TextWrapping.Wrap,
-                });
+                _slotText.Clear().Append("Slots ");
+                for (int i = 0; i < count; i++)
+                    _slotText.Append("  ").Append(i).Append(':').Append(_slots[i].Value);
+                row.Slots.Text = _slotText.ToString();
             }
-            AddCell(row, 4, detail);
-            FrameRows.Children.Add(row);
+            row.Slots.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
         }
+
+        if (reorder)
+        {
+            FrameRows.Children.Clear();
+            foreach (var f in stats)
+                FrameRows.Children.Add(_rows[$"{f.CommandSet:X2}{f.CommandId:X2}{f.Sender:X2}{f.Receiver:X2}{f.Length}"].Root);
+        }
+    }
+
+    private FrameRow BuildRow(FrameStat f)
+    {
+        var mono = (FontFamily)FindResource("MonoFont");
+        var noise = TryFindResource("TextFillColorTertiaryBrush") as Brush;
+        var root = new Grid { Margin = new Thickness(0, 5, 0, 5) };
+        foreach (double width in new[] { 110.0, 60, 90, 60 })
+            root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(width) });
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var count = new TextBlock();
+        var rate = new TextBlock();
+        AddCell(root, 0, new TextBlock { Text = $"{f.CommandSet:X2}/{f.CommandId:X2} {f.Sender:X2}>{f.Receiver:X2}", FontFamily = mono });
+        AddCell(root, 1, new TextBlock { Text = $"{f.Length} B" });
+        AddCell(root, 2, count);
+        AddCell(root, 3, rate);
+
+        var hex = new System.Windows.Controls.TextBlock { FontFamily = mono, FontSize = 12, TextWrapping = TextWrapping.Wrap };
+        var bytes = new Run[f.LastFrame.Length];
+        for (int i = 0; i < bytes.Length; i++)
+        {
+            bytes[i] = new Run();
+            if (FrameStats.IsNoiseByte(i, f.Length))
+                bytes[i].Foreground = noise;
+            hex.Inlines.Add(bytes[i]);
+            hex.Inlines.Add(new Run(" "));
+        }
+
+        var slots = new TextBlock
+        {
+            FontFamily = mono,
+            FontTypography = FontTypography.Caption,
+            Appearance = TextColor.Secondary,
+            Margin = new Thickness(0, 4, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+        };
+        var detail = new StackPanel();
+        detail.Children.Add(hex);
+        detail.Children.Add(slots);
+        AddCell(root, 4, detail);
+
+        return new FrameRow { Root = root, Count = count, Rate = rate, Bytes = bytes, Slots = slots };
     }
 
     // A TextBox eats the wheel even when it can't scroll further, which strands the page scroll

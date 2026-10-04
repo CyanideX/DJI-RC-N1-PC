@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using RCN1Bridge.Core.Diagnostics;
 using RCN1Bridge.Core.Input;
+using RCN1Bridge.Core.Mapping;
 using RCN1Bridge.Core.Output;
 using RCN1Bridge.Core.Protocol;
 
@@ -69,6 +70,9 @@ public sealed class BridgeEngine : IDisposable
     private long _badFrames;
     private long _skippedBytes;
     private volatile bool _outputEnabled = true;
+    private InputMapper? _mapper;
+    private ProcessedInput _lastProcessed; // reader thread only
+    private RcButtons? _lastButtons; // reader thread only
 
     public BridgeEngine(IGamepadOutput output)
         : this(output, PortScanner.Scan, port => new SerialLinkAdapter(SerialDevice.Open(port.PortName)))
@@ -92,6 +96,13 @@ public sealed class BridgeEngine : IDisposable
     public long BadFrameCount => Interlocked.Read(ref _badFrames);
     public long SkippedByteCount => Interlocked.Read(ref _skippedBytes);
     public StickProcessor Processor => _processor;
+
+    // Null sends the sticks straight through, which is all the default layout needs
+    public InputMapper? Mapper
+    {
+        get => Volatile.Read(ref _mapper);
+        set => Volatile.Write(ref _mapper, value);
+    }
 
     public InputSnapshot Input
     {
@@ -178,6 +189,9 @@ public sealed class BridgeEngine : IDisposable
         string? problem = null;
 
         _processor.Reset();
+        Mapper?.Reset();
+        _lastProcessed = default;
+        _lastButtons = null;
         Latency.Clear();
         Interlocked.Exchange(ref _replies, 0);
         Volatile.Write(ref _sessionStartTimestamp, Stopwatch.GetTimestamp());
@@ -228,6 +242,12 @@ public sealed class BridgeEngine : IDisposable
         if (ButtonDecoder.TryDecode(frame, out var buttons))
         {
             PublishButtons(buttons);
+            if (_lastButtons != buttons)
+            {
+                _lastButtons = buttons;
+                if (Mapper is { UsesButtons: true } && Status.State == LinkState.Live)
+                    Submit(Stopwatch.GetTimestamp());
+            }
             return;
         }
         if (!StickDecoder.TryDecode(frame, out var raw))
@@ -244,8 +264,8 @@ public sealed class BridgeEngine : IDisposable
         Volatile.Write(ref _lastStickTimestamp, now);
 
         var processed = _processor.Process(raw, elapsed);
-        if (_outputEnabled)
-            _output.Submit(processed);
+        _lastProcessed = processed;
+        Submit(now);
         Latency.Record(Volatile.Read(ref _readTimestamp));
 
         PublishInput(raw, processed);
@@ -264,6 +284,17 @@ public sealed class BridgeEngine : IDisposable
                 ? s with { State = LinkState.Live, SuggestReplug = false, Problem = null }
                 : s);
         }
+    }
+
+    private void Submit(long timestamp)
+    {
+        if (!_outputEnabled)
+            return;
+        var mapper = Mapper;
+        var report = mapper is null
+            ? PadReport.FromSticks(_lastProcessed)
+            : mapper.Map(_lastProcessed, _lastButtons, timestamp);
+        _output.Submit(report);
     }
 
     private void PollLoop(ISerialLink link, PortInfo port, IReadOnlyList<PortInfo> ports, CancellationTokenSource session)

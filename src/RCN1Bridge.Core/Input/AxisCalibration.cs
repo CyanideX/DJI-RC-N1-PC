@@ -1,9 +1,12 @@
+using System.Text.Json.Serialization;
+
 namespace RCN1Bridge.Core.Input;
 
 public readonly record struct AxisCalibration(ushort Min, ushort Center, ushort Max)
 {
     public static AxisCalibration Factory { get; } = new(364, 1024, 1684);
 
+    [JsonIgnore]
     public bool IsValid => Min < Center && Center < Max;
 
     // Each half scales on its own so an off-centre stick still reaches full travel both ways

@@ -1,0 +1,70 @@
+<UserControl
+    x:Class="RCN1Bridge.App.Pages.MappingPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+    <StackPanel Margin="32,12,32,32">
+        <Grid Margin="0,0,0,16">
+            <TextBlock Style="{StaticResource PageTitle}" Text="Mapping" />
+            <ui:ToggleSwitch
+                x:Name="EnabledToggle"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Checked="OnEnabledChanged"
+                Content="Use custom mapping"
+                Unchecked="OnEnabledChanged" />
+        </Grid>
+
+        <ui:InfoBar
+            x:Name="OffBar"
+            Title="Custom mapping is off"
+            Margin="0,0,0,14"
+            IsClosable="False"
+            IsOpen="True"
+            Message="Games get the two sticks in the standard layout and nothing else. You can set things up here first; nothing is sent until you turn it on." />
+
+        <Border Margin="0,0,0,14" Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock FontWeight="SemiBold" Text="Sticks" />
+                <StackPanel x:Name="StickRows" />
+            </StackPanel>
+        </Border>
+
+        <Border Margin="0,0,0,14" Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock FontWeight="SemiBold" Text="Gimbal dial" />
+                <TextBlock
+                    Margin="0,2,0,0"
+                    Style="{StaticResource Muted}"
+                    Text="Springs back to centre when you let go. Both triggers keeps it analog, so a game or mod can read how far it's rolled. Buttons at the ends presses a button only when it's rolled all the way." />
+                <StackPanel x:Name="DialRows" />
+            </StackPanel>
+        </Border>
+
+        <Border Margin="0,0,0,14" Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock FontWeight="SemiBold" Text="Buttons" />
+                <TextBlock Margin="0,2,0,0" Style="{StaticResource Muted}" Text="Held for as long as you hold the button on the remote." />
+                <StackPanel x:Name="ButtonRows" />
+            </StackPanel>
+        </Border>
+
+        <Border Margin="0,0,0,14" Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock FontWeight="SemiBold" Text="Flight mode switch" />
+                <TextBlock
+                    Margin="0,2,0,0"
+                    Style="{StaticResource Muted}"
+                    Text="Each position sends a short press when you move the switch, and once when the controller connects or you turn mapping on. Nothing stays held." />
+                <StackPanel x:Name="ModeRows" />
+            </StackPanel>
+        </Border>
+
+        <ui:Button
+            HorizontalAlignment="Left"
+            Click="OnResetClicked"
+            Content="Reset mapping to defaults"
+            Icon="{ui:SymbolIcon ArrowReset24}" />
+    </StackPanel>
+</UserControl>

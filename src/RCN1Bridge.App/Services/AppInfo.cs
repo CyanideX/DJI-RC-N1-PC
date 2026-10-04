@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using RCN1Bridge.Core.Device;
 using RCN1Bridge.Core.Diagnostics;
+using RCN1Bridge.Core.Input;
 
 namespace RCN1Bridge.App.Services;
 
@@ -26,6 +27,9 @@ public static class AppInfo
             sb.AppendLine($"Problem: {status.Problem}");
         sb.AppendLine($"Virtual pad: {(pad.IsConnected ? $"virtual Xbox 360, slot {pad.PlayerNumber?.ToString() ?? "?"}" : pad.Problem)}");
         sb.AppendLine($"Output: {(engine.OutputEnabled ? "on" : "paused")}");
+        sb.AppendLine($"Mapping: {(engine.Mapper is null ? "off" : App.Settings.Mapping.ToString())}");
+        var tuning = engine.Processor.Tuning;
+        sb.AppendLine($"Tuning: {(tuning == TuningProfile.Default ? "default" : tuning.ToString())}");
         sb.AppendLine($"Stick frames: {engine.StickFrameCount}, bad frames: {engine.BadFrameCount}, skipped bytes: {engine.SkippedByteCount}");
         sb.AppendLine($"Median input to pad: {engine.Latency.Median()?.ToString("0.000") ?? "n/a"} ms");
         var raw = input.Raw;

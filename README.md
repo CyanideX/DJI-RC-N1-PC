@@ -9,7 +9,9 @@ The app talks to the remote over USB and feeds a virtual Xbox 360 controller, so
 ## What it does
 
 - Both sticks, at about 130 updates a second.
-- Reads the gimbal dial, the C/N/S flight mode switch and the Fn, Photo/Video, RTH and Capture buttons, shown live on the Home page. Sending them to games is coming with the Mapping page.
+- Reads the gimbal dial, the C/N/S flight mode switch and the Fn, Photo/Video, RTH and Capture buttons, shown live on the Home page.
+- Mapping page: send the dial, buttons and switch to games as Xbox buttons or triggers, swap or invert stick axes. Off by default, so games get just the two sticks until you turn it on.
+- Tuning page: deadzone, expo, rate and smoothing per stick with a live response curve, plus a calibration wizard. Also off by default.
 - Centres the sticks within a quarter of a second if the cable comes out or the remote goes quiet, so a drone never keeps flying on its own.
 - Reconnects by itself when you plug the remote back in.
 - Runs in the system tray, can start with Windows, and follows the Windows light or dark theme.

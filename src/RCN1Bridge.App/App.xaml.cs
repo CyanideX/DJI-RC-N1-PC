@@ -3,6 +3,8 @@ using System.Windows.Threading;
 using RCN1Bridge.App.Services;
 using RCN1Bridge.Core.Device;
 using RCN1Bridge.Core.Diagnostics;
+using RCN1Bridge.Core.Input;
+using RCN1Bridge.Core.Mapping;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
 
@@ -53,6 +55,8 @@ public partial class App : Application
         Settings = AppSettings.Load();
         Pad.TryConnect();
         Engine = new BridgeEngine(Pad);
+        ApplyMapping();
+        ApplyTuning();
         Engine.Start();
 
         _window = new MainWindow();
@@ -81,6 +85,12 @@ public partial class App : Application
     public static void SyncSendToGame(bool on) => (Current as App)?._tray?.SetSendToGame(on);
 
     public static void SetTheme(AppTheme theme) => (Current as App)?.ApplyTheme(theme);
+
+    public static void ApplyMapping() =>
+        Engine.Mapper = Settings.MappingEnabled ? new InputMapper(Settings.Mapping, Engine.Mapper) : null;
+
+    public static void ApplyTuning() =>
+        Engine.Processor.Tuning = Settings.TuningEnabled ? Settings.Tuning : TuningProfile.Default;
 
     private EventWaitHandle ListenFor(string name, Action action, bool repeat)
     {
@@ -173,6 +183,7 @@ public partial class App : Application
         if (_instance is not null)
         {
             _tray?.Dispose();
+            Settings?.Flush();
             Engine?.Dispose();
             Pad.Dispose();
             Log.Info("Exited");

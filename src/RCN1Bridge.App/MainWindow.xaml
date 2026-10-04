@@ -39,6 +39,8 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
@@ -48,13 +50,25 @@
                         <TextBlock FontSize="14" Text="Home" />
                     </StackPanel>
                 </Button>
-                <Button x:Name="DiagnosticsNav" Grid.Row="1" Click="OnNavClicked" Style="{StaticResource NavButton}">
+                <Button x:Name="MappingNav" Grid.Row="1" Click="OnNavClicked" Style="{StaticResource NavButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Margin="0,0,12,0" FontSize="16" Symbol="XboxController24" />
+                        <TextBlock FontSize="14" Text="Mapping" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="TuningNav" Grid.Row="2" Click="OnNavClicked" Style="{StaticResource NavButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Margin="0,0,12,0" FontSize="16" Symbol="Options24" />
+                        <TextBlock FontSize="14" Text="Tuning" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="DiagnosticsNav" Grid.Row="3" Click="OnNavClicked" Style="{StaticResource NavButton}">
                     <StackPanel Orientation="Horizontal">
                         <ui:SymbolIcon Margin="0,0,12,0" FontSize="16" Symbol="Pulse24" />
                         <TextBlock FontSize="14" Text="Diagnostics" />
                     </StackPanel>
                 </Button>
-                <Button x:Name="SettingsNav" Grid.Row="3" Margin="0,6,0,0" Click="OnNavClicked" Style="{StaticResource NavButton}">
+                <Button x:Name="SettingsNav" Grid.Row="5" Margin="0,6,0,0" Click="OnNavClicked" Style="{StaticResource NavButton}">
                     <StackPanel Orientation="Horizontal">
                         <ui:SymbolIcon Margin="0,0,12,0" FontSize="16" Symbol="Settings24" />
                         <TextBlock FontSize="14" Text="Settings" />

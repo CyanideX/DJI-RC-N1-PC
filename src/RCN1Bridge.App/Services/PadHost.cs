@@ -3,7 +3,6 @@ using Nefarius.ViGEm.Client.Exceptions;
 using Nefarius.ViGEm.Client.Targets;
 using Nefarius.ViGEm.Client.Targets.Xbox360;
 using RCN1Bridge.Core.Diagnostics;
-using RCN1Bridge.Core.Input;
 using RCN1Bridge.Core.Output;
 
 namespace RCN1Bridge.App.Services;
@@ -16,7 +15,7 @@ public sealed class PadHost : IGamepadOutput, IDisposable
     private readonly Lock _gate = new();
     private ViGEmClient? _client;
     private IXbox360Controller? _pad;
-    private short _lx, _ly, _rx, _ry;
+    private PadReport _sent;
 
     public bool IsConnected
     {
@@ -82,20 +81,16 @@ public sealed class PadHost : IGamepadOutput, IDisposable
         }
     }
 
-    public void Submit(in ProcessedInput input)
+    public void Submit(in PadReport report)
     {
-        short lx = StickProcessor.ToAxis(input.LeftX);
-        short ly = StickProcessor.ToAxis(input.LeftY);
-        short rx = StickProcessor.ToAxis(input.RightX);
-        short ry = StickProcessor.ToAxis(input.RightY);
         lock (_gate)
-            Send(lx, ly, rx, ry);
+            Send(report);
     }
 
     public void SubmitNeutral()
     {
         lock (_gate)
-            Send(0, 0, 0, 0);
+            Send(PadReport.Neutral);
     }
 
     public void Dispose()
@@ -121,18 +116,21 @@ public sealed class PadHost : IGamepadOutput, IDisposable
         }
     }
 
-    private void Send(short lx, short ly, short rx, short ry)
+    private void Send(in PadReport report)
     {
-        if (_pad is null || (lx == _lx && ly == _ly && rx == _rx && ry == _ry))
+        if (_pad is null || report == _sent)
             return;
         try
         {
-            _pad.SetAxisValue(Xbox360Axis.LeftThumbX, lx);
-            _pad.SetAxisValue(Xbox360Axis.LeftThumbY, ly);
-            _pad.SetAxisValue(Xbox360Axis.RightThumbX, rx);
-            _pad.SetAxisValue(Xbox360Axis.RightThumbY, ry);
+            _pad.SetAxisValue(Xbox360Axis.LeftThumbX, report.LeftX);
+            _pad.SetAxisValue(Xbox360Axis.LeftThumbY, report.LeftY);
+            _pad.SetAxisValue(Xbox360Axis.RightThumbX, report.RightX);
+            _pad.SetAxisValue(Xbox360Axis.RightThumbY, report.RightY);
+            _pad.SetSliderValue(Xbox360Slider.LeftTrigger, report.LeftTrigger);
+            _pad.SetSliderValue(Xbox360Slider.RightTrigger, report.RightTrigger);
+            _pad.SetButtonsFull((ushort)report.Buttons);
             _pad.SubmitReport();
-            (_lx, _ly, _rx, _ry) = (lx, ly, rx, ry);
+            _sent = report;
         }
         catch (Exception ex)
         {

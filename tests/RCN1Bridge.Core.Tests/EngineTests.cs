@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using RCN1Bridge.Core.Device;
 using RCN1Bridge.Core.Input;
+using RCN1Bridge.Core.Mapping;
 using RCN1Bridge.Core.Output;
 using RCN1Bridge.Core.Protocol;
 
@@ -74,13 +75,13 @@ internal sealed class FakeRc : ISerialLink
 internal sealed class RecordingOutput : IGamepadOutput
 {
     private readonly Lock _gate = new();
-    private ProcessedInput _last;
+    private PadReport _last;
     public int Submits;
     public int Neutrals;
 
-    public ProcessedInput Last { get { lock (_gate) return _last; } }
+    public PadReport Last { get { lock (_gate) return _last; } }
 
-    public void Submit(in ProcessedInput input)
+    public void Submit(in PadReport input)
     {
         lock (_gate)
         {
@@ -93,7 +94,7 @@ internal sealed class RecordingOutput : IGamepadOutput
     {
         lock (_gate)
         {
-            _last = ProcessedInput.Neutral;
+            _last = PadReport.Neutral;
             Neutrals++;
         }
     }
@@ -149,7 +150,7 @@ public class EngineTests
         WaitFor(() => rig.Engine.Status.State == LinkState.Live, "Live");
 
         rig.Current.LeftH = 1684;
-        WaitFor(() => rig.Output.Last.LeftX > 0.99f, "left stick to reach the pad");
+        WaitFor(() => rig.Output.Last.LeftX > 32000, "left stick to reach the pad");
 
         Assert.Equal(DjiPort, rig.Engine.Status.Port);
         Assert.True(rig.Engine.StickFrameCount > 0);
@@ -162,11 +163,11 @@ public class EngineTests
         rig.Engine.Start();
         WaitFor(() => rig.Engine.Status.State == LinkState.Live, "Live");
         rig.Current.LeftH = 1684;
-        WaitFor(() => rig.Output.Last.LeftX > 0.99f, "stick deflected");
+        WaitFor(() => rig.Output.Last.LeftX > 32000, "stick deflected");
 
         rig.Current.Responding = false;
         WaitFor(() => rig.Engine.Status.State == LinkState.Stalled, "Stalled");
-        Assert.Equal(0f, rig.Output.Last.LeftX);
+        Assert.Equal(0, rig.Output.Last.LeftX);
 
         rig.Current.Responding = true;
         WaitFor(() => rig.Engine.Status.State == LinkState.Live, "Live again");
@@ -179,13 +180,13 @@ public class EngineTests
         rig.Engine.Start();
         WaitFor(() => rig.Engine.Status.State == LinkState.Live, "Live");
         rig.Current.LeftH = 1684;
-        WaitFor(() => rig.Output.Last.LeftX > 0.99f, "stick deflected");
+        WaitFor(() => rig.Output.Last.LeftX > 32000, "stick deflected");
 
         var first = rig.Current;
         rig.PortPresent = false;
         first.FailReads = true;
         WaitFor(() => rig.Engine.Status.State == LinkState.Searching, "Searching");
-        Assert.Equal(0f, rig.Output.Last.LeftX);
+        Assert.Equal(0, rig.Output.Last.LeftX);
         Assert.True(first.Disposed);
 
         rig.PortPresent = true;
@@ -221,7 +222,7 @@ public class EngineTests
         rig.Current.SendAetr = true;
         rig.Current.AetrLeftH = 364;
 
-        WaitFor(() => rig.Output.Last.LeftX < -0.99f, "AETR push used once full frames stop");
+        WaitFor(() => rig.Output.Last.LeftX < -32000, "AETR push used once full frames stop");
     }
 
     [Fact]
@@ -279,11 +280,61 @@ public class EngineTests
         rig.Engine.Start();
         WaitFor(() => rig.Engine.Status.State == LinkState.Live, "Live");
         rig.Current.LeftH = 1684;
-        WaitFor(() => rig.Output.Last.LeftX > 0.99f, "stick deflected");
+        WaitFor(() => rig.Output.Last.LeftX > 32000, "stick deflected");
 
         rig.Dispose();
 
-        Assert.Equal(0f, rig.Output.Last.LeftX);
+        Assert.Equal(0, rig.Output.Last.LeftX);
         Assert.True(rig.Current.Disposed);
+    }
+}
+
+public class EngineMappingTests
+{
+    private static readonly PortInfo DjiPort = new("COM5", "DJI USB VCOM For Protocol (COM5)", @"USB\VID_2CA3&PID_001F");
+
+    private static (BridgeEngine Engine, RecordingOutput Output, Func<FakeRc> Rc) Start(MappingProfile profile)
+    {
+        var output = new RecordingOutput();
+        FakeRc? rc = null;
+        var engine = new BridgeEngine(output, () => [DjiPort], _ => rc = new FakeRc()) { Mapper = new InputMapper(profile) };
+        engine.Start();
+        return (engine, output, () => rc!);
+    }
+
+    private static void WaitFor(Func<bool> condition, string what)
+    {
+        var sw = Stopwatch.StartNew();
+        while (!condition())
+        {
+            if (sw.ElapsedMilliseconds > 3000)
+                Assert.Fail($"Timed out waiting for: {what}");
+            Thread.Sleep(2);
+        }
+    }
+
+    [Fact]
+    public void MappedButtonReachesThePad()
+    {
+        var (engine, output, rc) = Start(MappingProfile.Default with { Fn = PadButton.A });
+        using var _ = engine;
+        WaitFor(() => engine.Input.Buttons is not null && engine.Status.State == LinkState.Live, "Live with buttons");
+
+        rc().ButtonBits = 0x1000 | 0x0002;
+        WaitFor(() => output.Last.Buttons == PadButton.A, "A pressed");
+        rc().ButtonBits = 0x1000;
+        WaitFor(() => output.Last.Buttons == PadButton.None, "A released");
+    }
+
+    [Fact]
+    public void SwitchMovePulsesItsButton()
+    {
+        var (engine, output, rc) = Start(MappingProfile.Default with { ModeC = PadButton.DPadLeft });
+        using var _ = engine;
+        WaitFor(() => engine.Input.Buttons?.Mode == FlightMode.Normal, "buttons reported");
+
+        rc().ButtonBits = 0x2000;
+        WaitFor(() => output.Last.Buttons == PadButton.DPadLeft, "pulse starts");
+        WaitFor(() => output.Last.Buttons == PadButton.None, "pulse ends");
     }
 }

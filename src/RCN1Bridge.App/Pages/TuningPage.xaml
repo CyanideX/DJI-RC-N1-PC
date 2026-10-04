@@ -1,0 +1,90 @@
+<UserControl
+    x:Class="RCN1Bridge.App.Pages.TuningPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="clr-namespace:RCN1Bridge.App.Controls"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+    <StackPanel Margin="32,12,32,32">
+        <Grid Margin="0,0,0,16">
+            <TextBlock Style="{StaticResource PageTitle}" Text="Tuning" />
+            <ui:ToggleSwitch
+                x:Name="EnabledToggle"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Checked="OnEnabledChanged"
+                Content="Use custom tuning"
+                Unchecked="OnEnabledChanged" />
+        </Grid>
+
+        <ui:InfoBar
+            x:Name="OffBar"
+            Title="Custom tuning is off"
+            Margin="0,0,0,14"
+            IsClosable="False"
+            IsOpen="True"
+            Message="The sticks use a 3% deadzone, no curve and the factory calibration. You can set things up here first; they only apply once you turn this on." />
+
+        <Grid Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="14" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Style="{StaticResource Card}">
+                <StackPanel>
+                    <DockPanel>
+                        <TextBlock FontWeight="SemiBold" Text="Left stick" />
+                        <TextBlock HorizontalAlignment="Right" Style="{StaticResource Muted}" Text="Throttle · Yaw" />
+                    </DockPanel>
+                    <controls:CurveView x:Name="LeftCurve" Margin="0,12,0,4" />
+                    <StackPanel x:Name="LeftSliders" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Style="{StaticResource Card}">
+                <StackPanel>
+                    <DockPanel>
+                        <TextBlock FontWeight="SemiBold" Text="Right stick" />
+                        <TextBlock HorizontalAlignment="Right" Style="{StaticResource Muted}" Text="Pitch · Roll" />
+                    </DockPanel>
+                    <controls:CurveView x:Name="RightCurve" Margin="0,12,0,4" />
+                    <StackPanel x:Name="RightSliders" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <TextBlock
+            Margin="0,0,0,14"
+            Style="{StaticResource Muted}"
+            Text="The curve plots how far the stick is pushed (across) against what the game gets (up). Expo softens the middle for fine control and keeps full range at the edges. Smoothing filters jitter but adds delay, so leave it off unless the stick is noisy." />
+
+        <Border Margin="0,0,0,14" Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock FontWeight="SemiBold" Text="Gimbal dial" />
+                <StackPanel x:Name="DialSliders" />
+            </StackPanel>
+        </Border>
+
+        <Border Margin="0,0,0,14" Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock FontWeight="SemiBold" Text="Calibration" />
+                <TextBlock Margin="0,2,0,0" Style="{StaticResource Muted}" Text="Lowest, centre and highest raw value for each axis. Calibrate if a stick doesn't reach full travel or drifts at rest." />
+                <UniformGrid x:Name="CalibrationCells" Margin="0,12,0,0" Columns="5" />
+                <TextBlock x:Name="CalibrationStatus" Margin="0,12,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+                <WrapPanel Margin="0,12,0,0">
+                    <ui:Button x:Name="CalibrateButton" Margin="0,0,8,0" Appearance="Primary" Click="OnCalibrateClicked" Content="Calibrate" />
+                    <ui:Button x:Name="NextButton" Margin="0,0,8,0" Appearance="Primary" Click="OnNextClicked" Content="Next" Visibility="Collapsed" />
+                    <ui:Button x:Name="FinishButton" Margin="0,0,8,0" Appearance="Primary" Click="OnFinishClicked" Content="Finish" Visibility="Collapsed" />
+                    <ui:Button x:Name="CancelButton" Margin="0,0,8,0" Click="OnCancelClicked" Content="Cancel" Visibility="Collapsed" />
+                    <ui:Button x:Name="FactoryButton" Click="OnFactoryClicked" Content="Use factory values" />
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <ui:Button
+            HorizontalAlignment="Left"
+            Click="OnResetClicked"
+            Content="Reset sticks and dial to defaults"
+            Icon="{ui:SymbolIcon ArrowReset24}" />
+    </StackPanel>
+</UserControl>

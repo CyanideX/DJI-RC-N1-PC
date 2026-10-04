@@ -1,4 +1,6 @@
 using RCN1Bridge.Core.Input;
+using RCN1Bridge.Core.Mapping;
+using RCN1Bridge.Core.Output;
 using RCN1Bridge.Core.Protocol;
 
 namespace RCN1Bridge.Core.Tests;
@@ -118,7 +120,10 @@ public class StickProcessorTests
     [Fact]
     public void MapsChannelsToSticks()
     {
-        var p = new StickProcessor { Left = new StickShaping { Deadzone = 0 }, Right = new StickShaping { Deadzone = 0 } };
+        var p = new StickProcessor
+        {
+            Tuning = new TuningProfile { Left = new StickShaping { Deadzone = 0 }, Right = new StickShaping { Deadzone = 0 } },
+        };
 
         var result = p.Process(new RawSticks(RightH: 1684, RightV: 364, LeftH: 1354, LeftV: 694, Dial: 1024, HasDial: true), 0.007f);
 
@@ -130,25 +135,24 @@ public class StickProcessorTests
     }
 
     [Fact]
-    public void DialEndsPressButtons()
-    {
-        var p = new StickProcessor();
-
-        var up = p.Process(new RawSticks(1024, 1024, 1024, 1024, 1684, true), 0.007f);
-        Assert.True(up.DialUp);
-        Assert.False(up.DialDown);
-
-        var down = p.Process(new RawSticks(1024, 1024, 1024, 1024, 364, true), 0.007f);
-        Assert.False(down.DialUp);
-        Assert.True(down.DialDown);
-    }
-
-    [Fact]
     public void CompactFrameLeavesDialNeutral()
     {
         var result = new StickProcessor().Process(new RawSticks(1024, 1024, 1024, 1024, 0, false), 0.007f);
         Assert.Equal(0f, result.Dial);
-        Assert.False(result.DialDown);
+    }
+
+    [Fact]
+    public void CalibrationComesFromTuning()
+    {
+        var p = new StickProcessor
+        {
+            Tuning = TuningProfile.Default with
+            {
+                Left = new StickShaping { Deadzone = 0 },
+                Calibration = new StickCalibration { LeftH = new AxisCalibration(400, 1000, 1600) },
+            },
+        };
+        Assert.Equal(1f, p.Process(new RawSticks(1024, 1024, 1600, 1024, 1024, true), 0f).LeftX, 4);
     }
 
     [Theory]
@@ -165,12 +169,22 @@ public class HotPathTests
     [Fact]
     public void ParseDecodeProcessAllocatesNothing()
     {
-        var processor = new StickProcessor { Left = new StickShaping { Expo = 0.3f, SmoothingMs = 10 } };
-        float sink = 0;
+        var processor = new StickProcessor { Tuning = new TuningProfile { Left = new StickShaping { Expo = 0.3f, SmoothingMs = 10 } } };
+        var mapper = new InputMapper(MappingProfile.Default with
+        {
+            Dial = new AxisBinding { Target = AxisTarget.Buttons, Positive = PadButton.Y },
+            Fn = PadButton.A,
+            ModeC = PadButton.DPadLeft,
+        });
+        var buttons = ButtonDecoder.Decode(0x2002);
+        long sink = 0;
         var parser = new DumlParser(frame =>
         {
             if (StickDecoder.TryDecode(frame, out var raw))
-                sink += processor.Process(raw, 0.007f).LeftX;
+            {
+                var processed = processor.Process(raw, 0.007f);
+                sink += PadReport.FromSticks(processed).LeftX + mapper.Map(processed, buttons, 0).LeftX;
+            }
         });
 
         var stream = Enumerable.Range(0, 64)
