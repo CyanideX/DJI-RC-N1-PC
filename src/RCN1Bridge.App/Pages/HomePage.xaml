@@ -96,28 +96,6 @@
                             TextWrapping="Wrap" />
                     </StackPanel>
                 </ui:Card>
-                <ui:Card Margin="0,12,0,0" Padding="16">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition />
-                            <RowDefinition />
-                            <RowDefinition />
-                            <RowDefinition />
-                        </Grid.RowDefinitions>
-                        <ui:TextBlock Grid.Row="0" Margin="0,0,0,8" Appearance="Secondary" Text="Updates" />
-                        <ui:TextBlock x:Name="RateText" Grid.Row="0" Grid.Column="1" FontTypography="BodyStrong" />
-                        <ui:TextBlock Grid.Row="1" Margin="0,0,0,8" Appearance="Secondary" Text="Input to game" />
-                        <ui:TextBlock x:Name="LatencyText" Grid.Row="1" Grid.Column="1" FontTypography="BodyStrong" />
-                        <ui:TextBlock Grid.Row="2" Margin="0,0,0,8" Appearance="Secondary" Text="Bad packets" />
-                        <ui:TextBlock x:Name="BadText" Grid.Row="2" Grid.Column="1" FontTypography="BodyStrong" />
-                        <ui:TextBlock Grid.Row="3" Appearance="Secondary" Text="Virtual Xbox pad" />
-                        <ui:TextBlock x:Name="PadText" Grid.Row="3" Grid.Column="1" FontTypography="BodyStrong" />
-                    </Grid>
-                </ui:Card>
             </StackPanel>
 
             <ui:Card Grid.Column="2" Padding="16" VerticalAlignment="Stretch" VerticalContentAlignment="Top">
@@ -141,6 +119,34 @@
                 </StackPanel>
             </ui:Card>
         </Grid>
+
+        <ui:Card x:Name="StatsCard" Margin="0,12,0,0" Padding="24,16">
+            <DockPanel>
+                <ui:TextBlock
+                    x:Name="TrayNote"
+                    VerticalAlignment="Center"
+                    Appearance="Secondary"
+                    DockPanel.Dock="Right" />
+                <StackPanel Orientation="Horizontal">
+                    <StackPanel Margin="0,0,28,0">
+                        <TextBlock x:Name="RateText" FontSize="20" FontWeight="SemiBold" />
+                        <ui:TextBlock Appearance="Secondary" Text="Updates" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,28,0">
+                        <TextBlock x:Name="LatencyText" FontSize="20" FontWeight="SemiBold" />
+                        <ui:TextBlock Appearance="Secondary" Text="Input to game" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,28,0">
+                        <TextBlock x:Name="BadText" FontSize="20" FontWeight="SemiBold" />
+                        <ui:TextBlock Appearance="Secondary" Text="Bad packets" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock x:Name="PadText" FontSize="20" FontWeight="SemiBold" />
+                        <ui:TextBlock Appearance="Secondary" Text="Virtual Xbox pad" />
+                    </StackPanel>
+                </StackPanel>
+            </DockPanel>
+        </ui:Card>
 
         <ui:Card x:Name="Checklist" Margin="0,16,0,0" Padding="20,8">
             <StackPanel x:Name="ChecklistItems" />

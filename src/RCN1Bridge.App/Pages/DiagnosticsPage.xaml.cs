@@ -280,7 +280,18 @@ public partial class DiagnosticsPage : UserControl
         foreach (var (name, button) in _stepButtons)
         {
             button.IsEnabled = !_capturing;
-            button.Icon = App.Capture.Has(name) ? new SymbolIcon { Symbol = SymbolRegular.Checkmark24 } : null;
+            if (!App.Capture.Has(name))
+            {
+                button.Icon = null;
+                button.ClearValue(BorderBrushProperty);
+                button.ClearValue(BorderThicknessProperty);
+                continue;
+            }
+            var check = new SymbolIcon { Symbol = SymbolRegular.Checkmark24 };
+            check.SetResourceReference(ForegroundProperty, "SystemFillColorSuccessBrush");
+            button.Icon = check;
+            button.SetResourceReference(BorderBrushProperty, "SystemFillColorSuccessBrush");
+            button.BorderThickness = new Thickness(1.5);
         }
     }
 

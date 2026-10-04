@@ -74,6 +74,7 @@ public partial class HomePage : UserControl
         bool searching = s.State == LinkState.Searching;
         StatusActions.Visibility = searching ? Visibility.Visible : Visibility.Collapsed;
         LivePanel.Visibility = searching ? Visibility.Collapsed : Visibility.Visible;
+        StatsCard.Visibility = LivePanel.Visibility;
         Checklist.Visibility = searching ? Visibility.Visible : Visibility.Collapsed;
 
         DriverBar.IsOpen = !padOk;
@@ -225,6 +226,7 @@ public partial class HomePage : UserControl
     {
         if (SendToggle.IsChecked != App.Engine.OutputEnabled)
             SendToggle.IsChecked = App.Engine.OutputEnabled;
+        TrayNote.Text = App.Settings.KeepInTray ? "Closing the window keeps it running in the tray" : "Closing the window quits the app";
 
         // Two seconds of history: the RC drops ~5% of requests, which makes half-second counts jumpy
         long now = Stopwatch.GetTimestamp();
