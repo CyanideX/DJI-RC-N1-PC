@@ -77,6 +77,8 @@ public sealed class BridgeEngine : IDisposable
     private volatile bool _outputEnabled = true;
     private InputMapper? _mapper;
     private ProcessedInput _lastProcessed; // reader thread only
+    private RawSticks _lastRaw; // reader thread only
+    private volatile bool _gameLinkEnabled = true;
     private RcButtons? _lastButtons; // reader thread only
 
     public BridgeEngine(IGamepadOutput output)
@@ -103,6 +105,16 @@ public sealed class BridgeEngine : IDisposable
     public long SkippedByteCount => Interlocked.Read(ref _skippedBytes);
     public long LostPollCount => Interlocked.Read(ref _lostPolls);
     public StickProcessor Processor => _processor;
+
+    // Set before Start. Published from the reader thread only.
+    public GameLink? GameLink { get; init; }
+
+    // Off still publishes, with the live flag clear, so a reader stops acting on the RC straight away
+    public bool GameLinkEnabled
+    {
+        get => _gameLinkEnabled;
+        set => _gameLinkEnabled = value;
+    }
 
     // Null sends the sticks straight through, which is all the default layout needs
     public InputMapper? Mapper
@@ -198,6 +210,7 @@ public sealed class BridgeEngine : IDisposable
         _processor.Reset();
         Mapper?.Reset();
         _lastProcessed = default;
+        _lastRaw = default;
         _lastButtons = null;
         Latency.Clear();
         ReplyTime.Clear();
@@ -238,6 +251,7 @@ public sealed class BridgeEngine : IDisposable
             _output.SubmitNeutral();
             PublishInput(default, ProcessedInput.Neutral);
             PublishButtons(null);
+            GameLink?.Publish(false, default, ProcessedInput.Neutral, null);
             Log.Info($"Closed {port.PortName}");
         }
         return problem;
@@ -254,8 +268,12 @@ public sealed class BridgeEngine : IDisposable
             if (_lastButtons != buttons)
             {
                 _lastButtons = buttons;
-                if (Mapper is { UsesButtons: true } && Status.State == LinkState.Live)
-                    Submit(Stopwatch.GetTimestamp());
+                if (Status.State == LinkState.Live)
+                {
+                    if (Mapper is { UsesButtons: true })
+                        Submit(Stopwatch.GetTimestamp());
+                    PublishGameLink();
+                }
             }
             return;
         }
@@ -274,7 +292,9 @@ public sealed class BridgeEngine : IDisposable
 
         var processed = _processor.Process(raw, elapsed);
         _lastProcessed = processed;
+        _lastRaw = raw;
         Submit(now);
+        PublishGameLink();
         Latency.Record(Volatile.Read(ref _readTimestamp));
 
         PublishInput(raw, processed);
@@ -322,6 +342,9 @@ public sealed class BridgeEngine : IDisposable
             return _outstandingCount;
         }
     }
+
+    private void PublishGameLink() =>
+        GameLink?.Publish(_gameLinkEnabled && _outputEnabled, _lastRaw, _lastProcessed, _lastButtons);
 
     private void Submit(long timestamp)
     {

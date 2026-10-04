@@ -19,6 +19,10 @@ switch (args.FirstOrDefault())
     case "stability":
         Stability(args.Length > 1 ? int.Parse(args[1]) : 20, args.Length > 2 ? int.Parse(args[2]) : 3);
         break;
+    case "gamelink":
+        // Stands in for the game plugin: reads the running bridge's block and beats the heartbeat
+        GameLinkProbe(args.Length > 1 ? int.Parse(args[1]) : 5);
+        break;
     case "seq":
         SequenceProbe();
         break;
@@ -124,6 +128,30 @@ static void SequenceProbe()
     }
     foreach (var line in replies.Take(20))
         Console.WriteLine(line);
+}
+
+static void GameLinkProbe(int seconds)
+{
+    using var file = System.IO.MemoryMappedFiles.MemoryMappedFile.OpenExisting(GameLink.DefaultName);
+    using var view = file.CreateViewAccessor(0, GameLink.Size);
+    Console.WriteLine($"magic {view.ReadUInt32(0):X8} version {view.ReadUInt32(4)}");
+    var clock = Stopwatch.StartNew();
+    uint lastSequence = 0;
+    int writes = 0;
+    while (clock.Elapsed.TotalSeconds < seconds)
+    {
+        uint sequence = view.ReadUInt32(GameLink.SequenceOffset);
+        if (sequence != lastSequence && (sequence & 1) == 0)
+        {
+            writes++;
+            lastSequence = sequence;
+        }
+        view.Write(GameLink.HeartbeatOffset, Stopwatch.GetTimestamp());
+        Thread.Sleep(1);
+    }
+    long age = (long)Stopwatch.GetElapsedTime(view.ReadInt64(GameLink.TimestampOffset)).TotalMilliseconds;
+    Console.WriteLine($"{writes / (double)seconds:0}/s seen, flags {view.ReadUInt32(GameLink.FlagsOffset)}, mode {view.ReadByte(GameLink.ModeOffset)}, " +
+        $"buttons {view.ReadByte(GameLink.ButtonsOffset)}, left X {view.ReadSingle(GameLink.AxesOffset):0.00}, raw LH {view.ReadUInt16(GameLink.RawOffset)}, age {age} ms");
 }
 
 static bool StartLive(BridgeEngine engine, string name)

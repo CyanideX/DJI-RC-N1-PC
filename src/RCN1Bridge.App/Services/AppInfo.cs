@@ -26,7 +26,8 @@ public static class AppInfo
         if (status.Problem is not null)
             sb.AppendLine($"Problem: {status.Problem}");
         sb.AppendLine($"Virtual pad: {(pad.IsConnected ? $"virtual Xbox 360, slot {pad.PlayerNumber?.ToString() ?? "?"}" : pad.Problem)}");
-        sb.AppendLine($"Output: {(engine.OutputEnabled ? "on" : "paused")}");
+        sb.AppendLine($"Output: {(engine.OutputEnabled ? "on" : "paused")}, to {App.Settings.Output}");
+        sb.AppendLine($"Game link: {(App.GameLink is null ? "unavailable" : App.GameLink.ReaderConnected ? "Drone mod connected" : "no reader")}");
         sb.AppendLine($"Mapping: {(engine.Mapper is null ? "off" : App.Settings.Mapping.ToString())}");
         var tuning = engine.Processor.Tuning;
         sb.AppendLine($"Tuning: {(tuning == TuningProfile.Default ? "default" : tuning.ToString())}");

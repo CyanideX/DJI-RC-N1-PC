@@ -140,9 +140,13 @@
                         <TextBlock x:Name="BadText" FontSize="20" FontWeight="SemiBold" />
                         <ui:TextBlock Appearance="Secondary" Text="Bad packets" />
                     </StackPanel>
-                    <StackPanel>
+                    <StackPanel Margin="0,0,28,0">
                         <TextBlock x:Name="PadText" FontSize="20" FontWeight="SemiBold" />
                         <ui:TextBlock Appearance="Secondary" Text="Virtual Xbox pad" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock x:Name="ModText" FontSize="20" FontWeight="SemiBold" />
+                        <ui:TextBlock Appearance="Secondary" Text="Drone mod" />
                     </StackPanel>
                 </StackPanel>
             </DockPanel>

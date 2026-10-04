@@ -177,6 +177,7 @@ public class HotPathTests
             ModeC = PadButton.DPadLeft,
         });
         var buttons = ButtonDecoder.Decode(0x2002);
+        using var link = GameLink.TryCreate($@"Local\RCN1Bridge.GameLink.Test.{Guid.NewGuid():N}")!;
         long sink = 0;
         var parser = new DumlParser(frame =>
         {
@@ -184,6 +185,7 @@ public class HotPathTests
             {
                 var processed = processor.Process(raw, 0.007f);
                 sink += PadReport.FromSticks(processed).LeftX + mapper.Map(processed, buttons, 0).LeftX;
+                link.Publish(true, raw, processed, buttons);
             }
         });
 

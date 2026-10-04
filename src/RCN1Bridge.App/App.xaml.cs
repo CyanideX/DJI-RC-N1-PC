@@ -5,6 +5,7 @@ using RCN1Bridge.Core.Device;
 using RCN1Bridge.Core.Diagnostics;
 using RCN1Bridge.Core.Input;
 using RCN1Bridge.Core.Mapping;
+using RCN1Bridge.Core.Output;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
 
@@ -29,6 +30,7 @@ public partial class App : Application
     public static BridgeEngine Engine { get; private set; } = null!;
     public static ButtonCapture Capture { get; } = new();
     public static AppSettings Settings { get; private set; } = null!;
+    public static GameLink? GameLink { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -54,8 +56,10 @@ public partial class App : Application
         Log.Info($"RC-N1 Bridge {AppInfo.Version} starting, Windows {Environment.OSVersion.Version}");
 
         Settings = AppSettings.Load();
+        Pad.SetEnabled(Settings.Output != OutputTarget.DroneMod);
         Pad.TryConnect();
-        Engine = new BridgeEngine(Pad);
+        GameLink = Core.Output.GameLink.TryCreate();
+        Engine = new BridgeEngine(Pad) { GameLink = GameLink, GameLinkEnabled = Settings.Output != OutputTarget.XboxController };
         ApplyMapping();
         ApplyTuning();
         Engine.Start();
@@ -89,6 +93,12 @@ public partial class App : Application
 
     public static void ApplyMapping() =>
         Engine.Mapper = Settings.MappingEnabled ? new InputMapper(Settings.Mapping, Engine.Mapper) : null;
+
+    public static void ApplyOutput()
+    {
+        Pad.SetEnabled(Settings.Output != OutputTarget.DroneMod);
+        Engine.GameLinkEnabled = Settings.Output != OutputTarget.XboxController;
+    }
 
     public static void ApplyTuning() =>
         Engine.Processor.Tuning = Settings.TuningEnabled ? Settings.Tuning : TuningProfile.Default;
@@ -189,6 +199,7 @@ public partial class App : Application
             _tray?.Dispose();
             Settings?.Flush();
             Engine?.Dispose();
+            GameLink?.Dispose();
             Pad.Dispose();
             Log.Info("Exited");
             FileLog.Stop();

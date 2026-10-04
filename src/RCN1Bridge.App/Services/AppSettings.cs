@@ -10,6 +10,8 @@ namespace RCN1Bridge.App.Services;
 
 public enum AppTheme { System, Light, Dark }
 
+public enum OutputTarget { XboxController, DroneMod, Both }
+
 public sealed class AppSettings
 {
     private static readonly JsonSerializerOptions Json = new()
@@ -29,6 +31,7 @@ public sealed class AppSettings
     public bool KeepInTray { get; set; } = true;
     public bool StartWithWindows { get; set; }
     public AppTheme Theme { get; set; } = AppTheme.System;
+    public OutputTarget Output { get; set; } = OutputTarget.XboxController;
 
     // Off means the engine skips mapping entirely and sends the sticks straight through
     public bool MappingEnabled { get; set; }

@@ -30,6 +30,8 @@ public sealed class PadHost : IGamepadOutput, IDisposable
         {
             if (_pad is not null)
                 return true;
+            if (!Enabled)
+                return false;
             try
             {
                 _client = new ViGEmClient();
@@ -93,10 +95,29 @@ public sealed class PadHost : IGamepadOutput, IDisposable
             Send(PadReport.Neutral);
     }
 
+    // Off removes the controller from Windows entirely, so games and their prompts never see it
+    public bool Enabled { get; private set; } = true;
+
+    public void SetEnabled(bool enabled)
+    {
+        if (enabled == Enabled)
+            return;
+        Enabled = enabled;
+        if (enabled)
+            TryConnect();
+        else
+        {
+            Dispose();
+            Problem = null;
+            Log.Info("Virtual Xbox 360 controller turned off");
+        }
+    }
+
     public void Dispose()
     {
         lock (_gate)
         {
+            _sent = default;
             if (_pad is not null)
             {
                 try
