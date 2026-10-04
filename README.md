@@ -1,6 +1,6 @@
 # RC-N1 Bridge
 
-![DJI RC-N1 remote controller](DJI-RC-N1-Remote-Controller.png)
+<img width="1680" height="1001" alt="image" src="https://github.com/user-attachments/assets/944e2b0f-f901-48fc-b904-ae4bf00330e8" />
 
 Use a DJI RC-N1 remote as an Xbox controller on Windows. Built for the [Cyberpunk 2077 FPV mod](https://www.nexusmods.com/cyberpunk2077/mods/17830), and works with any game or simulator that supports Xbox controllers.
 
@@ -22,6 +22,8 @@ The app talks to the remote over USB and feeds a virtual Xbox 360 controller, so
 - The [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). If it's missing, Windows offers the download the first time you open the app.
 - The [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases/latest), which creates the virtual Xbox controller.
 - The DJI USB driver. If the remote isn't found, install [DJI Assistant 2 (Consumer Drones Series)](https://www.dji.com/downloads/softwares/dji-assistant-2-consumer-drones-series) once, then close it.
+
+![DJI RC-N1 remote controller](DJI-RC-N1-Remote-Controller.png)
 
 ## Getting started
 
