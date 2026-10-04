@@ -179,10 +179,10 @@ public partial class HomePage : UserControl
         RightReadout.Text = $"X {Axis(p.RightX)}  Y {Axis(p.RightY)}\nraw {r.RightH} / {r.RightV}";
 
         RenderButtons(input.Buttons);
-        Dial.Update(p.Dial, processor.DialButtonThreshold);
+        Dial.Update(p.Dial);
         DialReadout.Text = !r.HasDial
             ? "This controller hasn't reported the dial yet."
-            : $"{Axis(p.Dial)}  raw {r.Dial}{(p.DialUp ? "   Y held" : p.DialDown ? "   B held" : "")}";
+            : $"{Axis(p.Dial)}  raw {r.Dial}";
     }
 
     private void RenderButtons(RcButtons? buttons)

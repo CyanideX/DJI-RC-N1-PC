@@ -17,7 +17,6 @@ public sealed class PadHost : IGamepadOutput, IDisposable
     private ViGEmClient? _client;
     private IXbox360Controller? _pad;
     private short _lx, _ly, _rx, _ry;
-    private bool _y, _b;
 
     public bool IsConnected
     {
@@ -90,13 +89,13 @@ public sealed class PadHost : IGamepadOutput, IDisposable
         short rx = StickProcessor.ToAxis(input.RightX);
         short ry = StickProcessor.ToAxis(input.RightY);
         lock (_gate)
-            Send(lx, ly, rx, ry, input.DialUp, input.DialDown);
+            Send(lx, ly, rx, ry);
     }
 
     public void SubmitNeutral()
     {
         lock (_gate)
-            Send(0, 0, 0, 0, false, false);
+            Send(0, 0, 0, 0);
     }
 
     public void Dispose()
@@ -122,9 +121,9 @@ public sealed class PadHost : IGamepadOutput, IDisposable
         }
     }
 
-    private void Send(short lx, short ly, short rx, short ry, bool y, bool b)
+    private void Send(short lx, short ly, short rx, short ry)
     {
-        if (_pad is null || (lx == _lx && ly == _ly && rx == _rx && ry == _ry && y == _y && b == _b))
+        if (_pad is null || (lx == _lx && ly == _ly && rx == _rx && ry == _ry))
             return;
         try
         {
@@ -132,10 +131,8 @@ public sealed class PadHost : IGamepadOutput, IDisposable
             _pad.SetAxisValue(Xbox360Axis.LeftThumbY, ly);
             _pad.SetAxisValue(Xbox360Axis.RightThumbX, rx);
             _pad.SetAxisValue(Xbox360Axis.RightThumbY, ry);
-            _pad.SetButtonState(Xbox360Button.Y, y);
-            _pad.SetButtonState(Xbox360Button.B, b);
             _pad.SubmitReport();
-            (_lx, _ly, _rx, _ry, _y, _b) = (lx, ly, rx, ry, y, b);
+            (_lx, _ly, _rx, _ry) = (lx, ly, rx, ry);
         }
         catch (Exception ex)
         {

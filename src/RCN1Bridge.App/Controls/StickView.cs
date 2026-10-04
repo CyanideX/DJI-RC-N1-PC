@@ -67,13 +67,12 @@ public sealed class StickView : FrameworkElement
 public sealed class DialView : FrameworkElement
 {
     private double _value;
-    private double _threshold = 0.977;
 
-    public void Update(double value, double threshold)
+    public void Update(double value)
     {
-        if (value == _value && threshold == _threshold)
+        if (value == _value)
             return;
-        (_value, _threshold) = (value, threshold);
+        _value = value;
         InvalidateVisual();
     }
 
@@ -95,8 +94,6 @@ public sealed class DialView : FrameworkElement
 
         dc.DrawRoundedRectangle(track, null, new Rect(inset, mid - 3, span, 6), 3, 3);
         dc.DrawLine(new Pen(strong, 1), new Point(X(0), mid - 6), new Point(X(0), mid + 6));
-        foreach (double t in new[] { -_threshold, _threshold })
-            dc.DrawLine(new Pen(strong, 1) { DashStyle = DashStyles.Dot }, new Point(X(t), mid - 8), new Point(X(t), mid + 8));
         dc.DrawRoundedRectangle(accent, null, new Rect(X(Math.Clamp(_value, -1, 1)) - 2, mid - 9, 4, 18), 2, 2);
     }
 }
