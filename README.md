@@ -1,6 +1,6 @@
 # RC-N1 Bridge
 
-<img width="1680" height="1001" alt="image" src="https://github.com/user-attachments/assets/944e2b0f-f901-48fc-b904-ae4bf00330e8" />
+<img width="1680" height="927" alt="image" src="https://github.com/user-attachments/assets/1b09b89b-3c64-47da-8ea3-ed3a485953f9" /><br>
 
 Use a DJI RC-N1 remote as an Xbox controller on Windows. Built for the [Cyberpunk 2077 FPV mod](https://www.nexusmods.com/cyberpunk2077/mods/17830), and works with any game or simulator that supports Xbox controllers.
 
