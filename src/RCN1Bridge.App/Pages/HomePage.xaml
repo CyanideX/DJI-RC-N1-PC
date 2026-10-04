@@ -1,0 +1,149 @@
+<UserControl
+    x:Class="RCN1Bridge.App.Pages.HomePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="clr-namespace:RCN1Bridge.App.Controls"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+    <StackPanel Margin="32,12,32,32">
+        <Grid Margin="0,0,0,16">
+            <ui:TextBlock FontTypography="Title" Text="Home" />
+            <ui:ToggleSwitch
+                x:Name="SendToggle"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Checked="OnSendToggled"
+                Content="Send to game"
+                Unchecked="OnSendToggled" />
+        </Grid>
+
+        <ui:InfoBar x:Name="StatusBar" IsClosable="False" IsOpen="True" />
+        <StackPanel x:Name="StatusActions" Margin="0,8,0,0" Orientation="Horizontal">
+            <ui:Button Click="OnScanClicked" Content="Scan again" Icon="{ui:SymbolIcon ArrowClockwise24}" />
+        </StackPanel>
+
+        <ui:InfoBar
+            x:Name="DriverBar"
+            Title="Virtual controller driver missing"
+            Margin="0,12,0,0"
+            IsClosable="False"
+            Severity="Error" />
+        <StackPanel x:Name="DriverActions" Margin="0,8,0,0" Orientation="Horizontal">
+            <ui:Button
+                Appearance="Primary"
+                Click="OnDriverDownloadClicked"
+                Content="Download ViGEmBus"
+                Icon="{ui:SymbolIcon Open24}" />
+            <ui:Button
+                Margin="8,0,0,0"
+                Click="OnDriverRetryClicked"
+                Content="Check again"
+                Icon="{ui:SymbolIcon ArrowClockwise24}" />
+        </StackPanel>
+
+        <Grid x:Name="LivePanel" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="290" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <ui:Card Grid.Column="0" Padding="16" VerticalAlignment="Stretch" VerticalContentAlignment="Top">
+                <StackPanel>
+                    <DockPanel>
+                        <ui:TextBlock FontTypography="BodyStrong" Text="Left stick" />
+                        <ui:TextBlock
+                            HorizontalAlignment="Right"
+                            Appearance="Secondary"
+                            FontTypography="Caption"
+                            Text="Throttle · Yaw" />
+                    </DockPanel>
+                    <controls:StickView x:Name="LeftStick" Height="220" Margin="0,12" />
+                    <ui:TextBlock
+                        x:Name="LeftReadout"
+                        TextAlignment="Center"
+                        HorizontalAlignment="Center"
+                        Appearance="Secondary"
+                        FontFamily="{StaticResource MonoFont}"
+                        FontTypography="Caption" />
+                </StackPanel>
+            </ui:Card>
+
+            <StackPanel Grid.Column="1" Margin="12,0">
+                <ui:Card Padding="16">
+                    <StackPanel>
+                        <ui:TextBlock FontTypography="BodyStrong" Text="Gimbal dial" />
+                        <controls:DialView x:Name="Dial" Margin="0,12,0,8" />
+                        <ui:TextBlock
+                            x:Name="DialReadout"
+                            Appearance="Secondary"
+                            FontFamily="{StaticResource MonoFont}"
+                            FontTypography="Caption"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                </ui:Card>
+                <ui:Card Margin="0,12,0,0" Padding="16">
+                    <StackPanel>
+                        <ui:TextBlock FontTypography="BodyStrong" Text="Flight mode" />
+                        <UniformGrid x:Name="ModeSwitch" Margin="0,10,0,0" Columns="3" />
+                        <ui:TextBlock Margin="0,16,0,0" FontTypography="BodyStrong" Text="Buttons" />
+                        <UniformGrid x:Name="ButtonChips" Margin="0,8,0,0" Columns="2" />
+                        <ui:TextBlock
+                            x:Name="ButtonsMissing"
+                            Margin="0,8,0,0"
+                            Appearance="Tertiary"
+                            Text="This controller hasn't reported its buttons yet."
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                </ui:Card>
+                <ui:Card Margin="0,12,0,0" Padding="16">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition />
+                            <RowDefinition />
+                            <RowDefinition />
+                            <RowDefinition />
+                        </Grid.RowDefinitions>
+                        <ui:TextBlock Grid.Row="0" Margin="0,0,0,8" Appearance="Secondary" Text="Updates" />
+                        <ui:TextBlock x:Name="RateText" Grid.Row="0" Grid.Column="1" FontTypography="BodyStrong" />
+                        <ui:TextBlock Grid.Row="1" Margin="0,0,0,8" Appearance="Secondary" Text="Input to game" />
+                        <ui:TextBlock x:Name="LatencyText" Grid.Row="1" Grid.Column="1" FontTypography="BodyStrong" />
+                        <ui:TextBlock Grid.Row="2" Margin="0,0,0,8" Appearance="Secondary" Text="Bad packets" />
+                        <ui:TextBlock x:Name="BadText" Grid.Row="2" Grid.Column="1" FontTypography="BodyStrong" />
+                        <ui:TextBlock Grid.Row="3" Appearance="Secondary" Text="Virtual Xbox pad" />
+                        <ui:TextBlock x:Name="PadText" Grid.Row="3" Grid.Column="1" FontTypography="BodyStrong" />
+                    </Grid>
+                </ui:Card>
+            </StackPanel>
+
+            <ui:Card Grid.Column="2" Padding="16" VerticalAlignment="Stretch" VerticalContentAlignment="Top">
+                <StackPanel>
+                    <DockPanel>
+                        <ui:TextBlock FontTypography="BodyStrong" Text="Right stick" />
+                        <ui:TextBlock
+                            HorizontalAlignment="Right"
+                            Appearance="Secondary"
+                            FontTypography="Caption"
+                            Text="Pitch · Roll" />
+                    </DockPanel>
+                    <controls:StickView x:Name="RightStick" Height="220" Margin="0,12" />
+                    <ui:TextBlock
+                        x:Name="RightReadout"
+                        TextAlignment="Center"
+                        HorizontalAlignment="Center"
+                        Appearance="Secondary"
+                        FontFamily="{StaticResource MonoFont}"
+                        FontTypography="Caption" />
+                </StackPanel>
+            </ui:Card>
+        </Grid>
+
+        <ui:Card x:Name="Checklist" Margin="0,16,0,0" Padding="20,8">
+            <StackPanel x:Name="ChecklistItems" />
+        </ui:Card>
+    </StackPanel>
+</UserControl>

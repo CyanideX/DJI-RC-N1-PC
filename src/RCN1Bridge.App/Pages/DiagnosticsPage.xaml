@@ -1,0 +1,130 @@
+<UserControl
+    x:Class="RCN1Bridge.App.Pages.DiagnosticsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+    <StackPanel Margin="32,12,32,32">
+        <Grid Margin="0,0,0,4">
+            <ui:TextBlock FontTypography="Title" Text="Diagnostics" />
+            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal">
+                <ui:Button
+                    x:Name="CopyButton"
+                    Appearance="Primary"
+                    Click="OnCopyClicked"
+                    Content="Copy diagnostics"
+                    Icon="{ui:SymbolIcon Copy24}" />
+                <ui:Button
+                    Margin="8,0,0,0"
+                    Click="OnOpenLogsClicked"
+                    Content="Open log folder"
+                    Icon="{ui:SymbolIcon FolderOpen24}" />
+            </StackPanel>
+        </Grid>
+        <ui:TextBlock
+            Margin="0,0,0,16"
+            Appearance="Secondary"
+            Text="If something isn't working, click Copy diagnostics and paste the result into your bug report."
+            TextWrapping="Wrap" />
+
+        <ui:Card Padding="20,16">
+            <UniformGrid Columns="5">
+                <StackPanel>
+                    <ui:TextBlock x:Name="FramesText" FontTypography="Subtitle" />
+                    <ui:TextBlock Appearance="Secondary" FontTypography="Caption" Text="Stick updates" />
+                </StackPanel>
+                <StackPanel>
+                    <ui:TextBlock x:Name="RateText" FontTypography="Subtitle" />
+                    <ui:TextBlock Appearance="Secondary" FontTypography="Caption" Text="Per second" />
+                </StackPanel>
+                <StackPanel>
+                    <ui:TextBlock x:Name="LatencyText" FontTypography="Subtitle" />
+                    <ui:TextBlock Appearance="Secondary" FontTypography="Caption" Text="Input to game, median" />
+                </StackPanel>
+                <StackPanel>
+                    <ui:TextBlock x:Name="BadText" FontTypography="Subtitle" />
+                    <ui:TextBlock Appearance="Secondary" FontTypography="Caption" Text="Bad packets" />
+                </StackPanel>
+                <StackPanel>
+                    <ui:TextBlock x:Name="SkippedText" FontTypography="Subtitle" />
+                    <ui:TextBlock Appearance="Secondary" FontTypography="Caption" Text="Bytes skipped" />
+                </StackPanel>
+            </UniformGrid>
+        </ui:Card>
+
+        <ui:TextBlock Margin="0,24,0,2" FontTypography="Subtitle" Text="Find the buttons" />
+        <ui:TextBlock
+            Margin="0,0,0,10"
+            Appearance="Secondary"
+            Text="Click Rest first, with your hands off the controller and the switch on N. Then set each switch position or hold each button, and click its name while you hold it. Each capture takes 1.5 seconds. When you're done, click Copy results and paste them to the developer."
+            TextWrapping="Wrap" />
+        <ui:Card Padding="16">
+            <StackPanel>
+                <WrapPanel x:Name="StepButtons" />
+                <DockPanel Margin="0,8,0,0">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <ui:Button
+                            Click="OnResetCaptureClicked"
+                            Content="Start over"
+                            Icon="{ui:SymbolIcon ArrowClockwise24}" />
+                        <ui:Button
+                            x:Name="CopyCaptureButton"
+                            Margin="8,0,0,0"
+                            Appearance="Primary"
+                            Click="OnCopyClicked"
+                            Content="Copy results"
+                            Icon="{ui:SymbolIcon Copy24}" />
+                    </StackPanel>
+                    <ui:TextBlock
+                        x:Name="CaptureStatus"
+                        Margin="0,0,16,0"
+                        VerticalAlignment="Center"
+                        Appearance="Secondary"
+                        TextWrapping="Wrap" />
+                </DockPanel>
+            </StackPanel>
+        </ui:Card>
+
+        <ui:TextBlock Margin="0,24,0,2" FontTypography="Subtitle" Text="Messages from the controller" />
+        <ui:TextBlock
+            Margin="0,0,0,10"
+            Appearance="Secondary"
+            Text="One row per message type. Highlighted bytes changed in the last half second."
+            TextWrapping="Wrap" />
+        <ui:Card Padding="16,12">
+            <StackPanel>
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="60" />
+                        <ColumnDefinition Width="90" />
+                        <ColumnDefinition Width="60" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ui:TextBlock Grid.Column="0" Appearance="Secondary" FontTypography="Caption" Text="Set/ID From>To" />
+                    <ui:TextBlock Grid.Column="1" Appearance="Secondary" FontTypography="Caption" Text="Size" />
+                    <ui:TextBlock Grid.Column="2" Appearance="Secondary" FontTypography="Caption" Text="Count" />
+                    <ui:TextBlock Grid.Column="3" Appearance="Secondary" FontTypography="Caption" Text="Rate" />
+                    <ui:TextBlock Grid.Column="4" Appearance="Secondary" FontTypography="Caption" Text="Latest frame" />
+                </Grid>
+                <ui:TextBlock
+                    x:Name="NoFramesText"
+                    Margin="0,6"
+                    Appearance="Tertiary"
+                    Text="Nothing received yet." />
+                <StackPanel x:Name="FrameRows" />
+            </StackPanel>
+        </ui:Card>
+
+        <ui:TextBlock Margin="0,24,0,10" FontTypography="Subtitle" Text="Log" />
+        <TextBox
+            x:Name="LogBox"
+            Height="240"
+            FontFamily="{StaticResource MonoFont}"
+            FontSize="12"
+            HorizontalScrollBarVisibility="Auto"
+            IsReadOnly="True"
+            TextWrapping="NoWrap"
+            VerticalScrollBarVisibility="Auto" />
+    </StackPanel>
+</UserControl>

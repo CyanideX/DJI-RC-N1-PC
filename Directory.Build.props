@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+
+    <Version>4.0.0</Version>
+    <Product>RC-N1 Bridge</Product>
+    <Company>CyanideX</Company>
+    <Authors>CyanideX</Authors>
+    <Copyright>Copyright (c) 2026 CyanideX</Copyright>
+    <Description>Uses a DJI RC-N1 remote controller as an Xbox controller on Windows.</Description>
+    <NeutralLanguage>en</NeutralLanguage>
+  </PropertyGroup>
+</Project>

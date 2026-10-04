@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RCN1Bridge.App/RCN1Bridge.App.csproj" />
+    <Project Path="src/RCN1Bridge.Core/RCN1Bridge.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RCN1Bridge.Core.Tests/RCN1Bridge.Core.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/PollBench/PollBench.csproj" />
+  </Folder>
+</Solution>
