@@ -39,25 +39,30 @@ public partial class MainWindow : FluentWindow
 
     public void CloseForReal()
     {
+        if (_reallyClose)
+            return;
         _reallyClose = true;
         Close();
     }
 
     protected override void OnClosing(CancelEventArgs e)
     {
-        if (!_reallyClose)
+        if (!_reallyClose && App.Settings.KeepInTray)
         {
             e.Cancel = true;
-            if (App.Settings.KeepInTray)
-            {
-                Hide();
-                HiddenToTray?.Invoke();
-            }
-            else
-                QuitRequested?.Invoke();
+            Hide();
+            HiddenToTray?.Invoke();
             return;
         }
+        _reallyClose = true;
         base.OnClosing(e);
+    }
+
+    // Quitting from inside Closing would call Close() on a window that's already closing, which WPF throws on
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        QuitRequested?.Invoke();
     }
 
     private void OnNavClicked(object sender, RoutedEventArgs e)

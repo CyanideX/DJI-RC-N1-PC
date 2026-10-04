@@ -23,6 +23,7 @@ public partial class App : Application
     private MainWindow? _window;
     private bool _watchingTheme;
     private bool _toldAboutTray;
+    private bool _quitting;
 
     public static PadHost Pad { get; } = new();
     public static BridgeEngine Engine { get; private set; } = null!;
@@ -172,6 +173,9 @@ public partial class App : Application
 
     private void Quit()
     {
+        if (_quitting)
+            return;
+        _quitting = true;
         _tray?.Dispose();
         _tray = null;
         _window?.CloseForReal();
