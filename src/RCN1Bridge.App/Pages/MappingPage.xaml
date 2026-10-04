@@ -37,7 +37,7 @@
                 <TextBlock
                     Margin="0,2,0,0"
                     Style="{StaticResource Muted}"
-                    Text="Springs back to centre when you let go. Both triggers keeps it analog, so a game or mod can read how far it's rolled. Buttons at the ends presses a button only when it's rolled all the way." />
+                    Text="Springs back to centre when you let go. The trigger options are analog, so the game reads how far it's turned. Both triggers, one per direction sends one way to LT and the other to RT; tick Invert if they come out swapped. Buttons, held while turned holds a button, such as a D-pad direction, for as long as the dial is past the press point." />
                 <StackPanel x:Name="DialRows" />
             </StackPanel>
         </Border>

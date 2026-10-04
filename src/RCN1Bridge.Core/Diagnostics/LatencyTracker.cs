@@ -21,7 +21,9 @@ public sealed class LatencyTracker
         }
     }
 
-    public double? Median()
+    public double? Median() => Percentile(0.5);
+
+    public double? Percentile(double fraction)
     {
         double[] copy;
         lock (_gate)
@@ -31,7 +33,7 @@ public sealed class LatencyTracker
             copy = _samples[.._count];
         }
         Array.Sort(copy);
-        return copy[copy.Length / 2];
+        return copy[Math.Min(copy.Length - 1, (int)(copy.Length * fraction))];
     }
 
     public void Clear()

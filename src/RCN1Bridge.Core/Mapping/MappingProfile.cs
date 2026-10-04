@@ -19,7 +19,7 @@ public enum AxisTarget
     RightTrigger,
     // Negative half to LT, positive half to RT
     SplitTriggers,
-    // Positive and Negative pressed past ButtonThreshold
+    // Positive held past +PressAt, Negative past -PressAt
     Buttons,
 }
 
@@ -29,6 +29,7 @@ public sealed record AxisBinding
     public bool Invert { get; init; }
     public PadButton Positive { get; init; }
     public PadButton Negative { get; init; }
+    public float PressAt { get; init; } = ThresholdButton.DefaultPress;
 }
 
 public sealed record MappingProfile
@@ -40,7 +41,6 @@ public sealed record MappingProfile
     public AxisBinding RightX { get; init; } = new() { Target = AxisTarget.RightX };
     public AxisBinding RightY { get; init; } = new() { Target = AxisTarget.RightY };
     public AxisBinding Dial { get; init; } = new();
-    public float ButtonThreshold { get; init; } = ThresholdButton.DefaultPress;
 
     public PadButton Fn { get; init; }
     public PadButton PhotoVideo { get; init; }

@@ -87,6 +87,8 @@ public partial class DiagnosticsPage : UserControl
         LatencyText.Text = engine.Latency.Median() is double ms ? $"{ms:0.00} ms" : "n/a";
         BadText.Text = engine.BadFrameCount.ToString("N0");
         SkippedText.Text = engine.SkippedByteCount.ToString("N0");
+        ReplyText.Text = engine.ReplyTime.Median() is double reply ? $"{reply:0.0} ms" : "n/a";
+        LostText.Text = engine.LostPollCount.ToString("N0");
 
         foreach (var f in engine.Frames.Snapshot())
         {

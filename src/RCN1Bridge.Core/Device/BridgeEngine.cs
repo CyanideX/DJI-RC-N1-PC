@@ -40,12 +40,14 @@ public sealed class BridgeEngine : IDisposable
     public static readonly TimeSpan StallTimeout = TimeSpan.FromMilliseconds(250);
     public static readonly TimeSpan SimEnableInterval = TimeSpan.FromSeconds(3);
     public static readonly TimeSpan ReplugHintAfter = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan PollReplyTimeout = TimeSpan.FromMilliseconds(20);
+    // Normal turnaround is 7-12 ms; anything this old was dropped by the RC
+    private static readonly TimeSpan PollReplyTimeout = TimeSpan.FromMilliseconds(30);
     private static readonly TimeSpan RescanInterval = TimeSpan.FromSeconds(2);
 
-    // The RC answers one request at a time; two in flight hides the turnaround.
-    // Measured on an RC-N1: ~129 stick and ~27 button updates/s.
-    public int PollsInFlight { get; set; } = 2;
+    // The RC queues requests and answers one every ~5 ms, topping out near 190/s. Measured on an
+    // RC-N1 (PollBench stability): 2 in flight 150/s, 3 in flight 175/s with replies in ~13 ms,
+    // 4 only adds queueing delay. It also drops ~5% of requests whatever the depth.
+    public int PollsInFlight { get; set; } = 3;
     public TimeSpan ButtonPollInterval { get; set; } = TimeSpan.FromMilliseconds(33);
 
     private readonly IGamepadOutput _output;
@@ -66,7 +68,10 @@ public sealed class BridgeEngine : IDisposable
     private long _sessionStartTimestamp;
     private long _readTimestamp;
     private long _stickFrames;
-    private long _replies;
+    private long _lostPolls;
+    private readonly Lock _pollGate = new();
+    private readonly (ushort Sequence, long SentAt)[] _outstanding = new (ushort, long)[8];
+    private int _outstandingCount;
     private long _badFrames;
     private long _skippedBytes;
     private volatile bool _outputEnabled = true;
@@ -92,9 +97,11 @@ public sealed class BridgeEngine : IDisposable
     public LinkStatus Status => Volatile.Read(ref _status);
     public FrameStats Frames { get; } = new();
     public LatencyTracker Latency { get; } = new();
+    public LatencyTracker ReplyTime { get; } = new();
     public long StickFrameCount => Interlocked.Read(ref _stickFrames);
     public long BadFrameCount => Interlocked.Read(ref _badFrames);
     public long SkippedByteCount => Interlocked.Read(ref _skippedBytes);
+    public long LostPollCount => Interlocked.Read(ref _lostPolls);
     public StickProcessor Processor => _processor;
 
     // Null sends the sticks straight through, which is all the default layout needs
@@ -193,7 +200,7 @@ public sealed class BridgeEngine : IDisposable
         _lastProcessed = default;
         _lastButtons = null;
         Latency.Clear();
-        Interlocked.Exchange(ref _replies, 0);
+        ReplyTime.Clear();
         Volatile.Write(ref _sessionStartTimestamp, Stopwatch.GetTimestamp());
         Volatile.Write(ref _lastStickTimestamp, 0);
         _lastExtendedTimestamp = 0;
@@ -239,6 +246,8 @@ public sealed class BridgeEngine : IDisposable
     private void OnFrame(DumlFrame frame)
     {
         Frames.Record(frame);
+        if (frame.CommandSet == RcCommands.RcCommandSet && frame.CommandId is RcCommands.GetChannels or RcCommands.GetButtons)
+            RetirePoll(frame.Sequence);
         if (ButtonDecoder.TryDecode(frame, out var buttons))
         {
             PublishButtons(buttons);
@@ -270,11 +279,6 @@ public sealed class BridgeEngine : IDisposable
 
         PublishInput(raw, processed);
         Interlocked.Increment(ref _stickFrames);
-        if (frame.CommandId == RcCommands.GetChannels)
-        {
-            Interlocked.Increment(ref _replies);
-            _replyArrived.Set();
-        }
 
         var state = Status.State;
         if (state is LinkState.WaitingForData or LinkState.Stalled)
@@ -283,6 +287,39 @@ public sealed class BridgeEngine : IDisposable
             UpdateStatus(s => s.State is LinkState.WaitingForData or LinkState.Stalled
                 ? s with { State = LinkState.Live, SuggestReplug = false, Problem = null }
                 : s);
+        }
+    }
+
+    // Replies echo the request's sequence number. Matching on it keeps the count exact: a lost
+    // request expires on its own, and a late reply to an expired one can't push us over budget.
+    private void RetirePoll(ushort sequence)
+    {
+        lock (_pollGate)
+        {
+            for (int i = 0; i < _outstandingCount; i++)
+            {
+                if (_outstanding[i].Sequence != sequence)
+                    continue;
+                ReplyTime.Record(_outstanding[i].SentAt);
+                _outstanding[i] = _outstanding[--_outstandingCount];
+                break;
+            }
+        }
+        _replyArrived.Set();
+    }
+
+    private int ExpirePolls(long now)
+    {
+        lock (_pollGate)
+        {
+            for (int i = _outstandingCount - 1; i >= 0; i--)
+            {
+                if (Stopwatch.GetElapsedTime(_outstanding[i].SentAt, now) < PollReplyTimeout)
+                    continue;
+                _outstanding[i] = _outstanding[--_outstandingCount];
+                Interlocked.Increment(ref _lostPolls);
+            }
+            return _outstandingCount;
         }
     }
 
@@ -304,9 +341,9 @@ public sealed class BridgeEngine : IDisposable
         ushort sequence = (ushort)Random.Shared.Next(ushort.MaxValue + 1);
         long sessionStart = Volatile.Read(ref _sessionStartTimestamp);
         long lastSimEnable = 0;
-        long lastPoll = 0;
         long lastButtonPoll = 0;
-        long sent = 0;
+        lock (_pollGate)
+            _outstandingCount = 0;
 
         try
         {
@@ -335,28 +372,19 @@ public sealed class BridgeEngine : IDisposable
                     UpdateStatus(s => s.State == LinkState.Live ? s with { State = LinkState.Stalled } : s);
                 }
 
-                long inFlight = sent - Interlocked.Read(ref _replies);
-                if (inFlight > 0 && Stopwatch.GetElapsedTime(lastPoll, now) >= PollReplyTimeout)
+                int pending = ExpirePolls(now);
+                while (pending < Math.Min(PollsInFlight, _outstanding.Length))
                 {
-                    sent = Interlocked.Read(ref _replies);
-                    inFlight = 0;
-                }
-
-                if (lastStick != 0 && Stopwatch.GetElapsedTime(lastButtonPoll, now) >= ButtonPollInterval)
-                {
+                    // Button polls take a turn in the queue rather than stacking on top of it
+                    bool buttons = lastStick != 0 && Stopwatch.GetElapsedTime(lastButtonPoll, now) >= ButtonPollInterval;
+                    if (buttons)
+                        lastButtonPoll = now;
+                    lock (_pollGate)
+                        _outstanding[_outstandingCount++] = (sequence, now);
                     DumlPacket.Write(poll, RcCommands.PcAddress, RcCommands.RcAddress, sequence++,
-                        RcCommands.RequestType, RcCommands.RcCommandSet, RcCommands.GetButtons, []);
+                        RcCommands.RequestType, RcCommands.RcCommandSet, buttons ? RcCommands.GetButtons : RcCommands.GetChannels, []);
                     link.Write(poll);
-                    lastButtonPoll = now;
-                }
-
-                if (inFlight < PollsInFlight)
-                {
-                    DumlPacket.Write(poll, RcCommands.PcAddress, RcCommands.RcAddress, sequence++,
-                        RcCommands.RequestType, RcCommands.RcCommandSet, RcCommands.GetChannels, []);
-                    link.Write(poll);
-                    sent++;
-                    lastPoll = now;
+                    pending++;
                 }
 
                 _replyArrived.WaitOne(5);

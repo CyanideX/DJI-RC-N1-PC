@@ -15,7 +15,6 @@ public sealed class InputMapper
     private readonly AxisBinding[] _axes = new AxisBinding[AnalogCount];
     private readonly ThresholdButton[] _positive = new ThresholdButton[AnalogCount];
     private readonly ThresholdButton[] _negative = new ThresholdButton[AnalogCount];
-    private readonly float _threshold;
     private readonly PadButton _fn, _photoVideo, _returnHome, _capture, _modeC, _modeN, _modeS;
     private FlightMode _mode;
     private PadButton _pulse;
@@ -27,7 +26,6 @@ public sealed class InputMapper
         _mode = previous?._mode ?? FlightMode.Unknown;
         for (int i = 0; i < AnalogCount; i++)
             _axes[i] = profile.Get((AnalogInput)i);
-        _threshold = profile.ButtonThreshold;
         (_fn, _photoVideo, _returnHome, _capture) = (profile.Fn, profile.PhotoVideo, profile.ReturnHome, profile.Capture);
         (_modeC, _modeN, _modeS) = (profile.ModeC, profile.ModeN, profile.ModeS);
         UsesButtons = (_fn | _photoVideo | _returnHome | _capture | _modeC | _modeN | _modeS) != PadButton.None;
@@ -80,8 +78,8 @@ public sealed class InputMapper
                     else rt += v;
                     break;
                 case AxisTarget.Buttons:
-                    if (_positive[i].Update(v, _threshold)) pressed |= binding.Positive;
-                    if (_negative[i].Update(-v, _threshold)) pressed |= binding.Negative;
+                    if (_positive[i].Update(v, binding.PressAt)) pressed |= binding.Positive;
+                    if (_negative[i].Update(-v, binding.PressAt)) pressed |= binding.Negative;
                     break;
             }
         }

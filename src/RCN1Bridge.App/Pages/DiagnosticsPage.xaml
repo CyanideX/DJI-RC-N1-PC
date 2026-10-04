@@ -28,18 +28,26 @@
             TextWrapping="Wrap" />
 
         <ui:Card Padding="20,16">
-            <UniformGrid Columns="5">
-                <StackPanel>
+            <UniformGrid Columns="4">
+                <StackPanel Margin="0,0,0,12">
                     <ui:TextBlock x:Name="FramesText" FontTypography="Subtitle" />
                     <ui:TextBlock Appearance="Secondary" FontTypography="Caption" Text="Stick updates" />
                 </StackPanel>
-                <StackPanel>
+                <StackPanel Margin="0,0,0,12">
                     <ui:TextBlock x:Name="RateText" FontTypography="Subtitle" />
                     <ui:TextBlock Appearance="Secondary" FontTypography="Caption" Text="Per second" />
                 </StackPanel>
-                <StackPanel>
+                <StackPanel Margin="0,0,0,12">
+                    <ui:TextBlock x:Name="ReplyText" FontTypography="Subtitle" />
+                    <ui:TextBlock Appearance="Secondary" FontTypography="Caption" Text="Controller answers in, median" />
+                </StackPanel>
+                <StackPanel Margin="0,0,0,12">
                     <ui:TextBlock x:Name="LatencyText" FontTypography="Subtitle" />
                     <ui:TextBlock Appearance="Secondary" FontTypography="Caption" Text="Input to game, median" />
+                </StackPanel>
+                <StackPanel>
+                    <ui:TextBlock x:Name="LostText" FontTypography="Subtitle" />
+                    <ui:TextBlock Appearance="Secondary" FontTypography="Caption" Text="Requests the controller dropped" />
                 </StackPanel>
                 <StackPanel>
                     <ui:TextBlock x:Name="BadText" FontTypography="Subtitle" />

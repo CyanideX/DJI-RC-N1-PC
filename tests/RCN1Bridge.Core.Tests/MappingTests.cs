@@ -72,6 +72,19 @@ public class MappingTests
     }
 
     [Fact]
+    public void DialHoldsDPadPastItsOwnPressPoint()
+    {
+        var mapper = new InputMapper(MappingProfile.Default with
+        {
+            Dial = new AxisBinding { Target = AxisTarget.Buttons, Positive = PadButton.DPadRight, Negative = PadButton.DPadLeft, PressAt = 0.3f },
+            RightX = new AxisBinding { Target = AxisTarget.Buttons, Positive = PadButton.A },
+        });
+        Assert.Equal(PadButton.None, mapper.Map(Centre with { Dial = 0.2f }, null, 0).Buttons);
+        Assert.Equal(PadButton.DPadRight, mapper.Map(Centre with { Dial = 0.35f, RightX = 0.5f }, null, 0).Buttons);
+        Assert.Equal(PadButton.DPadLeft, mapper.Map(Centre with { Dial = -0.6f }, null, 0).Buttons);
+    }
+
+    [Fact]
     public void ButtonsAreHeldWhilePressed()
     {
         var mapper = new InputMapper(MappingProfile.Default with { Fn = PadButton.A, Capture = PadButton.RightShoulder });

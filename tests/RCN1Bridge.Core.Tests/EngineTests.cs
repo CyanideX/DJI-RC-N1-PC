@@ -24,6 +24,8 @@ internal sealed class FakeRc : ISerialLink
     public ushort LeftH = 1024;
     public ushort AetrLeftH = 1024;
     public volatile ushort ButtonBits = 0x1000;
+    public volatile int DropEvery;
+    private int _polls;
 
     public int Read(Span<byte> buffer)
     {
@@ -58,12 +60,12 @@ internal sealed class FakeRc : ISerialLink
         if (frame.CommandId == RcCommands.SimulatorMode)
             _simEnabled = true;
         else if (frame.CommandId == RcCommands.GetButtons && Responding)
-            foreach (byte b in TestFrames.Buttons(ButtonBits))
+            foreach (byte b in TestFrames.Buttons(ButtonBits, frame.Sequence))
                 _outgoing.Enqueue(b);
-        else if (frame.CommandId == RcCommands.GetChannels && _simEnabled && Responding)
+        else if (frame.CommandId == RcCommands.GetChannels && _simEnabled && Responding && (DropEvery == 0 || ++_polls % DropEvery != 0))
         {
             if (SendExtended)
-                foreach (byte b in TestFrames.Extended(1024, 1024, 1024, LeftH, 1024))
+                foreach (byte b in TestFrames.Extended(1024, 1024, 1024, LeftH, 1024, frame.Sequence))
                     _outgoing.Enqueue(b);
             if (SendAetr)
                 foreach (byte b in TestFrames.Compact(1024, 1024, 1024, AetrLeftH))
@@ -336,5 +338,41 @@ public class EngineMappingTests
         rc().ButtonBits = 0x2000;
         WaitFor(() => output.Last.Buttons == PadButton.DPadLeft, "pulse starts");
         WaitFor(() => output.Last.Buttons == PadButton.None, "pulse ends");
+    }
+}
+
+public class EnginePollingTests
+{
+    private static readonly PortInfo DjiPort = new("COM5", "DJI USB VCOM For Protocol (COM5)", @"USB\VID_2CA3&PID_001F");
+
+    [Fact]
+    public void DroppedRequestsExpireAndPollingCarriesOn()
+    {
+        FakeRc? rc = null;
+        using var engine = new BridgeEngine(new RecordingOutput(), () => [DjiPort], _ => rc = new FakeRc { DropEvery = 3 });
+        engine.Start();
+        var sw = Stopwatch.StartNew();
+        while (engine.LostPollCount < 5 && sw.ElapsedMilliseconds < 3000)
+            Thread.Sleep(10);
+
+        Assert.True(engine.LostPollCount >= 5, "dropped requests never expired");
+        long before = engine.StickFrameCount;
+        Thread.Sleep(200);
+        Assert.True(engine.StickFrameCount - before > 10, "polling stalled after drops");
+        Assert.Equal(LinkState.Live, engine.Status.State);
+    }
+
+    [Fact]
+    public void RepliesAreMatchedSoNothingExpires()
+    {
+        using var engine = new BridgeEngine(new RecordingOutput(), () => [DjiPort], _ => new FakeRc());
+        engine.Start();
+        var sw = Stopwatch.StartNew();
+        while (engine.StickFrameCount < 100 && sw.ElapsedMilliseconds < 3000)
+            Thread.Sleep(10);
+
+        Assert.True(engine.StickFrameCount >= 100);
+        Assert.Equal(0, engine.LostPollCount);
+        Assert.NotNull(engine.ReplyTime.Median());
     }
 }

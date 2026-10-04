@@ -15,7 +15,7 @@ internal static class TestFrames
         return Reply(payload, cmdId: RcCommands.AetrPush);
     }
 
-    public static byte[] Extended(ushort rh, ushort rv, ushort lv, ushort lh, ushort dial)
+    public static byte[] Extended(ushort rh, ushort rv, ushort lv, ushort lh, ushort dial, ushort seq = 0x1234)
     {
         var payload = new byte[25];
         Put(payload, 2, rh);
@@ -23,14 +23,14 @@ internal static class TestFrames
         Put(payload, 8, lv);
         Put(payload, 11, lh);
         Put(payload, 14, dial);
-        return Reply(payload);
+        return Reply(payload, seq: seq);
     }
 
-    public static byte[] Buttons(ushort bits)
+    public static byte[] Buttons(ushort bits, ushort seq = 1)
     {
         var payload = new byte[ButtonDecoder.FrameLength - DumlPacket.MinLength];
         BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(28 - DumlPacket.HeaderLength), bits);
-        return DumlPacket.Build(RcCommands.RcAddress, RcCommands.PcAddress, 1, 0x80, RcCommands.RcCommandSet, RcCommands.GetButtons, payload);
+        return DumlPacket.Build(RcCommands.RcAddress, RcCommands.PcAddress, seq, 0x80, RcCommands.RcCommandSet, RcCommands.GetButtons, payload);
     }
 
     public static byte[] Reply(byte[] payload, byte cmdId = RcCommands.GetChannels, ushort seq = 0x1234) =>

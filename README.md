@@ -8,7 +8,7 @@ The app talks to the remote over USB and feeds a virtual Xbox 360 controller, so
 
 ## What it does
 
-- Both sticks, at about 130 updates a second.
+- Both sticks, at about 175 updates a second.
 - Reads the gimbal dial, the C/N/S flight mode switch and the Fn, Photo/Video, RTH and Capture buttons, shown live on the Home page.
 - Mapping page: send the dial, buttons and switch to games as Xbox buttons or triggers, swap or invert stick axes. Off by default, so games get just the two sticks until you turn it on.
 - Tuning page: deadzone, expo, rate and smoothing per stick with a live response curve, plus a calibration wizard. Also off by default.

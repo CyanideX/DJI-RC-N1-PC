@@ -17,8 +17,7 @@ namespace RCN1Bridge.App.Pages;
 public partial class HomePage : UserControl
 {
     private long _lastSequence = -1;
-    private long _lastFrames;
-    private long _lastStatsTimestamp;
+    private readonly Queue<(long Timestamp, long Frames)> _rateSamples = new();
     private (LinkStatus Status, bool PadOk, int? Player)? _rendered;
     private RcButtons? _renderedButtons;
 
@@ -167,7 +166,7 @@ public partial class HomePage : UserControl
 
         RenderButtons(input.Buttons);
         var mapping = App.Settings.Mapping;
-        Dial.Update(p.Dial, App.Settings.MappingEnabled && mapping.Dial.Target == AxisTarget.Buttons ? mapping.ButtonThreshold : 0);
+        Dial.Update(p.Dial, App.Settings.MappingEnabled && mapping.Dial.Target == AxisTarget.Buttons ? mapping.Dial.PressAt : 0);
         DialReadout.Text = !r.HasDial
             ? "This controller hasn't reported the dial yet."
             : $"{Axis(p.Dial)}  raw {r.Dial}";
@@ -227,16 +226,16 @@ public partial class HomePage : UserControl
         if (SendToggle.IsChecked != App.Engine.OutputEnabled)
             SendToggle.IsChecked = App.Engine.OutputEnabled;
 
+        // Two seconds of history: the RC drops ~5% of requests, which makes half-second counts jumpy
         long now = Stopwatch.GetTimestamp();
         long frames = App.Engine.StickFrameCount;
-        if (_lastStatsTimestamp != 0)
-        {
-            double seconds = Stopwatch.GetElapsedTime(_lastStatsTimestamp, now).TotalSeconds;
-            double rate = seconds > 0 ? Math.Max(0, frames - _lastFrames) / seconds : 0;
-            RateText.Text = $"{rate:0} Hz";
-        }
-        _lastFrames = frames;
-        _lastStatsTimestamp = now;
+        _rateSamples.Enqueue((now, frames));
+        while (_rateSamples.Count > 5)
+            _rateSamples.Dequeue();
+        var (then, before) = _rateSamples.Peek();
+        double seconds = Stopwatch.GetElapsedTime(then, now).TotalSeconds;
+        if (seconds > 0)
+            RateText.Text = $"{Math.Max(0, frames - before) / seconds:0} Hz";
 
         double? median = App.Engine.Latency.Median();
         LatencyText.Text = median is null ? "n/a" : $"{median:0.00} ms";

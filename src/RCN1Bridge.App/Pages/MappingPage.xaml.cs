@@ -23,10 +23,10 @@ public partial class MappingPage : UserControl
         new(AxisTarget.LeftY, "Left stick Y"),
         new(AxisTarget.RightX, "Right stick X"),
         new(AxisTarget.RightY, "Right stick Y"),
-        new(AxisTarget.LeftTrigger, "Left trigger"),
-        new(AxisTarget.RightTrigger, "Right trigger"),
-        new(AxisTarget.SplitTriggers, "Both triggers (LT one way, RT the other)"),
-        new(AxisTarget.Buttons, "Buttons at the ends"),
+        new(AxisTarget.LeftTrigger, "Left trigger (analog, + side)"),
+        new(AxisTarget.RightTrigger, "Right trigger (analog, + side)"),
+        new(AxisTarget.SplitTriggers, "Both triggers, one per direction (analog)"),
+        new(AxisTarget.Buttons, "Buttons, held while turned"),
     ];
 
     private static readonly Choice<PadButton>[] ButtonChoices =
@@ -48,7 +48,7 @@ public partial class MappingPage : UserControl
         new(PadButton.DPadRight, "D-pad right"),
     ];
 
-    private sealed record AxisRow(ComboBox Target, CheckBox Invert, FrameworkElement Ends, ComboBox Positive, ComboBox Negative);
+    private sealed record AxisRow(ComboBox Target, CheckBox Invert, FrameworkElement Ends, ComboBox Positive, ComboBox Negative, Slider PressAt);
 
     private readonly Dictionary<AnalogInput, AxisRow> _axisRows = [];
     private readonly Dictionary<DigitalInput, ComboBox> _buttonRows = [];
@@ -93,6 +93,7 @@ public partial class MappingPage : UserControl
             row.Invert.IsChecked = binding.Invert;
             Select(row.Positive, ButtonChoices, binding.Positive);
             Select(row.Negative, ButtonChoices, binding.Negative);
+            row.PressAt.Value = binding.PressAt;
             row.Ends.Visibility = binding.Target == AxisTarget.Buttons ? Visibility.Visible : Visibility.Collapsed;
         }
         foreach (var (input, box) in _buttonRows)
@@ -122,12 +123,23 @@ public partial class MappingPage : UserControl
         var negative = Combo(ButtonChoices, 170);
 
         var ends = new WrapPanel { Margin = new Thickness(0, 10, 0, 0) };
-        ends.Children.Add(Label("At the + end"));
+        ends.Children.Add(Label("Turned to +"));
         ends.Children.Add(positive);
-        ends.Children.Add(Label("At the - end", 20));
+        ends.Children.Add(Label("Turned to -", 20));
         ends.Children.Add(negative);
 
-        _axisRows[input] = new AxisRow(target, invert, ends, positive, negative);
+        var pressAt = new Slider { Minimum = 0.1, Maximum = 0.98, TickFrequency = 0.01, IsSnapToTickEnabled = true, Width = 150, VerticalAlignment = VerticalAlignment.Center };
+        var pressAtText = new TextBlock { Width = 40, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
+        pressAt.ValueChanged += (_, e) =>
+        {
+            pressAtText.Text = $"{e.NewValue:0%}";
+            OnAxisChanged(input, saveNow: false);
+        };
+        ends.Children.Add(Label("Press at", 20));
+        ends.Children.Add(pressAt);
+        ends.Children.Add(pressAtText);
+
+        _axisRows[input] = new AxisRow(target, invert, ends, positive, negative, pressAt);
         target.SelectionChanged += (_, _) => OnAxisChanged(input);
         positive.SelectionChanged += (_, _) => OnAxisChanged(input);
         negative.SelectionChanged += (_, _) => OnAxisChanged(input);
@@ -149,7 +161,7 @@ public partial class MappingPage : UserControl
         panel.Children.Add(Row(title, hint, active, box, null, null));
     }
 
-    private void OnAxisChanged(AnalogInput input)
+    private void OnAxisChanged(AnalogInput input, bool saveNow = true)
     {
         if (_loading)
             return;
@@ -160,15 +172,19 @@ public partial class MappingPage : UserControl
             Invert = row.Invert.IsChecked == true,
             Positive = Selected(row.Positive, PadButton.None),
             Negative = Selected(row.Negative, PadButton.None),
+            PressAt = (float)Math.Round(row.PressAt.Value, 2),
         };
         row.Ends.Visibility = binding.Target == AxisTarget.Buttons ? Visibility.Visible : Visibility.Collapsed;
-        Update(App.Settings.Mapping.With(input, binding));
+        Update(App.Settings.Mapping.With(input, binding), saveNow);
     }
 
-    private static void Update(MappingProfile profile)
+    private static void Update(MappingProfile profile, bool saveNow = true)
     {
         App.Settings.Mapping = profile;
-        App.Settings.Save();
+        if (saveNow)
+            App.Settings.Save();
+        else
+            App.Settings.SaveSoon();
         if (App.Settings.MappingEnabled)
             App.ApplyMapping();
     }
