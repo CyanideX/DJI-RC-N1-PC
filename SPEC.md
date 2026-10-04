@@ -2,8 +2,6 @@
 
 A Windows app that makes a DJI RC-N1 remote show up as an Xbox 360 controller. It replaces the Python v1 (now on the `legacy` branch) with a native C# app, fixes v1's connection bugs, and adds support for the RC's extra buttons.
 
-UI mockup: https://claude.ai/artifact/AmjidZkd62xGSFvU1RXoyi
-
 ## Goals
 
 - Looks and behaves like a Windows 11 app: Mica, system title bar, light/dark following Windows, tray icon.
@@ -280,9 +278,9 @@ No build can be guaranteed clean on every scanner. These are the things that mak
 
 **How it's built and shipped**
 - No packers, no UPX, no obfuscation, no compressed single-file bundles, nothing that unpacks itself to `%TEMP%`. A self-contained WPF single-file build has to extract its native DLLs at runtime, which is exactly what heuristics look for, so we don't ship it.
-- Two downloads per release:
-  - `RCN1Bridge-4.x.y-win-x64.zip`: self-contained folder (exe plus DLLs). No .NET install needed. The default.
-  - `RCN1Bridge-4.x.y-win-x64-small.zip`: framework-dependent single exe, a few MB. Needs the .NET 10 Desktop Runtime, and Windows shows a download link if it's missing. Native DLLs come from the installed runtime, so nothing is extracted.
+- Release download: `RCN1Bridge-4.x.y-win-x64.zip` holding one framework-dependent single-file `RCN1Bridge.exe` (7.7 MB, 2.9 MB zipped) and the licence. Needs the .NET 10 Desktop Runtime; Windows offers the download if it's missing. Nothing is extracted at runtime.
+- VirusTotal, unsigned, 4 Oct 2026: the first single exe (33 MB, versioned Windows SDK target, description "RCN1Bridge") scored 3/69, all machine-learning engines (Arctic Wolf, SecureAge, Trapmine). After targeting plain `net10.0-windows` and setting the description to "RC-N1 Bridge" it scored 1/71. Microsoft, Kaspersky, Bitdefender, ESET and the other major engines were clean both times. VirusTotal still tags it `overlay`, because a single-file .NET exe is a small launcher with the app appended. If that ever costs more detections, the fallback is the framework-dependent folder build (exe plus DLLs, no overlay).
+- Target plain `net10.0-windows`. A versioned Windows SDK target pulls in the 25 MB WinRT projection (`Microsoft.Windows.SDK.NET.dll`), which the app never uses.
 - Full file version info on the exe (product, company, description, version) from `Directory.Build.props`, plus a manifest with `asInvoker`. Unsigned exes with no metadata are a common heuristic hit.
 - Built by GitHub Actions from a tagged commit, with GitHub artifact attestations and SHA-256 hashes in the release notes, so anyone can check the zip came from the source.
 - Code signing through the [SignPath Foundation](https://signpath.org) free open-source programme. This is the biggest single win against SmartScreen and AV heuristics. It needs a public repo under an OSI licence (Apache 2.0 qualifies), releases built by CI with their GitHub Actions integration, and a code signing policy page in the repo. Apply once milestone 6's pipeline exists, since they want to see the CI build. Until approval, releases are unsigned and SmartScreen will show "unknown publisher" for a while.

@@ -25,7 +25,7 @@ The app talks to the remote over USB and feeds a virtual Xbox 360 controller, so
 ## Getting started
 
 1. Install ViGEmBus.
-2. Run `RCN1Bridge.exe`.
+2. Unzip the release and run `RCN1Bridge.exe`. It's a single file, so you can keep it anywhere.
 3. Plug the cable into the **bottom** USB-C port on the remote, then power the remote on.
 4. The Home page turns green and shows "Connected". Move the sticks and you'll see them move on screen.
 5. Start your game.
@@ -75,8 +75,6 @@ Project layout:
 - `src/RCN1Bridge.App` is the WPF app.
 - `tests/RCN1Bridge.Core.Tests` has the unit tests, including connection tests against a simulated remote.
 - `tools/PollBench` measures stick and button update rates on a real remote. Close the app first, then run `dotnet run --project tools/PollBench -c Release`.
-
-[SPEC.md](SPEC.md) covers the design, the DUML protocol details found so far, and the plan.
 
 ## The Python version
 
