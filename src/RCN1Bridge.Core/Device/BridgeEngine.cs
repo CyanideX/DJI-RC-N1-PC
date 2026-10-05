@@ -109,7 +109,7 @@ public sealed class BridgeEngine : IDisposable
     // Set before Start. Published from the reader thread only.
     public GameLink? GameLink { get; init; }
 
-    // Off still publishes, with the live flag clear, so a reader stops acting on the RC straight away
+    // Off keeps publishing with live clear, so the mod lets go at once instead of waiting out the 250 ms
     public bool GameLinkEnabled
     {
         get => _gameLinkEnabled;

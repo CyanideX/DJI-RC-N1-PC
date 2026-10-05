@@ -63,7 +63,7 @@ public partial class HomePage : UserControl
                     $"Connected on {port}. Asking the RC to start sending stick positions."),
             LinkState.Live =>
                 (InfoBarSeverity.Success, "Connected",
-                    output == OutputTarget.DroneMod
+                    !output.UsesPad()
                         ? $"{port}. Sending to the Drone mod only; games don't see a controller."
                         : padOk
                             ? $"{port}. Games see it as a virtual Xbox 360 controller{(player is null ? "" : $" in slot {player}")}"
@@ -251,7 +251,7 @@ public partial class HomePage : UserControl
         PadText.Text = !App.Pad.Enabled ? "Off"
             : !App.Pad.IsConnected ? "Not available"
             : App.Pad.PlayerNumber is int n ? $"Slot {n}" : "Connected";
-        ModText.Text = App.Settings.Output == OutputTarget.XboxController ? "Off"
+        ModText.Text = !App.Settings.Output.UsesGameLink() ? "Off"
             : App.GameLink?.ReaderConnected == true ? "Connected" : "Not running";
     }
 

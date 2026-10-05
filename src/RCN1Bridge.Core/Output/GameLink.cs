@@ -62,7 +62,6 @@ public sealed unsafe class GameLink : IDisposable
         }
     }
 
-    // A reader has touched its heartbeat recently
     public bool ReaderConnected
     {
         get

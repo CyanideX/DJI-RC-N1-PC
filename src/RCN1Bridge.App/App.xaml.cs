@@ -56,10 +56,10 @@ public partial class App : Application
         Log.Info($"RC-N1 Bridge {AppInfo.Version} starting, Windows {Environment.OSVersion.Version}");
 
         Settings = AppSettings.Load();
-        Pad.SetEnabled(Settings.Output != OutputTarget.DroneMod);
-        Pad.TryConnect();
         GameLink = Core.Output.GameLink.TryCreate();
-        Engine = new BridgeEngine(Pad) { GameLink = GameLink, GameLinkEnabled = Settings.Output != OutputTarget.XboxController };
+        Engine = new BridgeEngine(Pad) { GameLink = GameLink };
+        ApplyOutput();
+        Pad.TryConnect();
         ApplyMapping();
         ApplyTuning();
         Engine.Start();
@@ -96,8 +96,8 @@ public partial class App : Application
 
     public static void ApplyOutput()
     {
-        Pad.SetEnabled(Settings.Output != OutputTarget.DroneMod);
-        Engine.GameLinkEnabled = Settings.Output != OutputTarget.XboxController;
+        Pad.SetEnabled(Settings.Output.UsesPad());
+        Engine.GameLinkEnabled = Settings.Output.UsesGameLink();
     }
 
     public static void ApplyTuning() =>

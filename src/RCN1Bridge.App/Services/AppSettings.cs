@@ -12,6 +12,12 @@ public enum AppTheme { System, Light, Dark }
 
 public enum OutputTarget { XboxController, DroneMod, Both }
 
+public static class OutputTargetExtensions
+{
+    public static bool UsesPad(this OutputTarget target) => target != OutputTarget.DroneMod;
+    public static bool UsesGameLink(this OutputTarget target) => target != OutputTarget.XboxController;
+}
+
 public sealed class AppSettings
 {
     private static readonly JsonSerializerOptions Json = new()

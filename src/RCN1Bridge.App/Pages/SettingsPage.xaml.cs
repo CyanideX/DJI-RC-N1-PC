@@ -43,7 +43,7 @@ public partial class SettingsPage : UserControl
     }
 
     private void RenderDroneMod() =>
-        DroneModText.Text = App.Settings.Output == OutputTarget.XboxController ? "Off"
+        DroneModText.Text = !App.Settings.Output.UsesGameLink() ? "Off"
             : App.GameLink is null ? "Unavailable, see the log"
             : App.GameLink.ReaderConnected ? "Connected"
             : "Not running. Start the game with the Drone mod installed.";
