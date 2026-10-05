@@ -18,7 +18,7 @@ public partial class HomePage : UserControl
 {
     private long _lastSequence = -1;
     private readonly Queue<(long Timestamp, long Frames)> _rateSamples = new();
-    private (LinkStatus Status, bool PadOk, int? Player, OutputTarget Output)? _rendered;
+    private (LinkStatus Status, bool PadOk, int? Player, OutputTarget Output, string? HeldFor)? _rendered;
     private RcButtons? _renderedButtons;
 
     public HomePage()
@@ -43,9 +43,10 @@ public partial class HomePage : UserControl
         var output = App.Settings.Output;
         bool padOk = !App.Pad.Enabled || App.Pad.IsConnected;
         int? player = s.State == LinkState.Live ? App.Pad.PlayerNumber : null;
-        if (_rendered == (s, padOk, player, output))
+        string? heldFor = App.Engine.PadHeldForReader ? AppInfo.GameLinkReaders() ?? "A mod" : null;
+        if (_rendered == (s, padOk, player, output, heldFor))
             return;
-        _rendered = (s, padOk, player, output);
+        _rendered = (s, padOk, player, output, heldFor);
 
         string port = s.Port?.PortName ?? "";
         (StatusBar.Severity, StatusBar.Title, StatusBar.Message) = s.State switch
@@ -64,10 +65,12 @@ public partial class HomePage : UserControl
             LinkState.Live =>
                 (InfoBarSeverity.Success, "Connected",
                     !output.UsesPad()
-                        ? $"{port}. Sending to the Drone mod only; games don't see a controller."
+                        ? $"{port}. Sending to mods only; games don't see a controller."
+                        : heldFor is not null
+                            ? $"{port}. {heldFor} is reading the RC directly, so the virtual controller is held at centre."
                         : padOk
                             ? $"{port}. Games see it as a virtual Xbox 360 controller{(player is null ? "" : $" in slot {player}")}"
-                                + (output == OutputTarget.Both ? ", and the Drone mod reads it too." : ".")
+                                + (output == OutputTarget.Both ? ", and mods can read it directly." : ".")
                             : $"{port}. Games can't see it until the driver below is installed."),
             LinkState.Stalled =>
                 (InfoBarSeverity.Error, "Stick data stopped",
@@ -94,7 +97,7 @@ public partial class HomePage : UserControl
     {
         ChecklistItems.Children.Clear();
         ChecklistItems.Children.Add(!App.Pad.Enabled
-            ? Row(Check.Ok, "Virtual controller driver", "Not needed while the controller goes to the Drone mod only.")
+            ? Row(Check.Ok, "Virtual controller driver", "Not needed while the controller goes to mods only.")
             : padOk
             ? Row(Check.Ok, "Virtual controller driver", "ViGEmBus is installed.")
             : Row(Check.Failed, "Virtual controller driver", "Not installed. Use the download button above, then click Check again."));
@@ -251,8 +254,7 @@ public partial class HomePage : UserControl
         PadText.Text = !App.Pad.Enabled ? "Off"
             : !App.Pad.IsConnected ? "Not available"
             : App.Pad.PlayerNumber is int n ? $"Slot {n}" : "Connected";
-        ModText.Text = !App.Settings.Output.UsesGameLink() ? "Off"
-            : App.GameLink?.ReaderConnected == true ? "Connected" : "Not running";
+        ModText.Text = AppInfo.GameLinkSummary();
     }
 
     private void OnSendToggled(object sender, RoutedEventArgs e)

@@ -13,6 +13,24 @@ public static class AppInfo
         (Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0")
         .Split('+')[0];
 
+    public static string? GameLinkReaders()
+    {
+        var readers = App.Settings.Output.UsesGameLink() ? App.GameLink?.Readers : null;
+        return readers is { Count: > 0 } ? string.Join(", ", readers.Select(r => r.Name.Length > 0 ? r.Name : $"Process {r.ProcessId}")) : null;
+    }
+
+    public static string GameLinkSummary() =>
+        !App.Settings.Output.UsesGameLink() ? "Off"
+        : App.GameLink is null ? "Unavailable"
+        : GameLinkReaders() ?? "No game";
+
+    public static string GameLinkDetail() =>
+        !App.Settings.Output.UsesGameLink() ? "Off. Choose Both or Mods only to let mods read the RC."
+        : App.GameLink is null ? "Unavailable, see the log."
+        : GameLinkReaders() is not { } names ? "No game is reading it. Mods such as Drone for Cyberpunk 2077 connect when the game starts."
+        : App.Engine.PadHeldForReader ? $"{names}. The virtual controller is held at centre meanwhile."
+        : names;
+
     public static string BuildDiagnostics(BridgeEngine engine, PadHost pad, ButtonCapture capture)
     {
         var status = engine.Status;
@@ -27,7 +45,7 @@ public static class AppInfo
             sb.AppendLine($"Problem: {status.Problem}");
         sb.AppendLine($"Virtual pad: {(pad.IsConnected ? $"virtual Xbox 360, slot {pad.PlayerNumber?.ToString() ?? "?"}" : pad.Problem)}");
         sb.AppendLine($"Output: {(engine.OutputEnabled ? "on" : "paused")}, to {App.Settings.Output}");
-        sb.AppendLine($"Game link: {(App.GameLink is null ? "unavailable" : App.GameLink.ReaderConnected ? "Drone mod connected" : "no reader")}");
+        sb.AppendLine($"Game link: {GameLinkSummary()}{(engine.PadHeldForReader ? ", pad held at centre" : "")}");
         sb.AppendLine($"Mapping: {(engine.Mapper is null ? "off" : App.Settings.Mapping.ToString())}");
         var tuning = engine.Processor.Tuning;
         sb.AppendLine($"Tuning: {(tuning == TuningProfile.Default ? "default" : tuning.ToString())}");

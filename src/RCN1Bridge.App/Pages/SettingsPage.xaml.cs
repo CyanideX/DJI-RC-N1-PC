@@ -8,9 +8,9 @@ public partial class SettingsPage : UserControl
 {
     private static readonly (OutputTarget Target, string Label, string Hint)[] Outputs =
     [
-        (OutputTarget.XboxController, "Virtual Xbox controller", "Works with any game that supports an Xbox controller. Needs ViGEmBus."),
-        (OutputTarget.DroneMod, "Drone mod only", "No virtual controller. The Drone mod reads the RC directly, so keyboard, mouse and a real controller are left alone."),
-        (OutputTarget.Both, "Both", "The Drone mod reads the RC, and other games still see a virtual Xbox controller."),
+        (OutputTarget.Both, "Both", "Games see a virtual Xbox controller, and mods such as Drone for Cyberpunk 2077 can read the RC directly. While a mod has the RC, the virtual controller stays centred so the two don't fight. Needs ViGEmBus."),
+        (OutputTarget.XboxController, "Virtual Xbox controller only", "Works with any game that supports an Xbox controller. Mods can't read the RC directly. Needs ViGEmBus."),
+        (OutputTarget.ModsOnly, "Mods only", "No virtual controller. Mods that read the RC directly get it, and keyboard, mouse and a real controller are left alone."),
     ];
 
     private bool _loading;
@@ -20,7 +20,7 @@ public partial class SettingsPage : UserControl
         InitializeComponent();
         OutputBox.ItemsSource = Outputs.Select(o => o.Label).ToArray();
         ThemeBox.ItemsSource = Enum.GetValues<AppTheme>();
-        _ = new LiveTimer(this, TimeSpan.FromSeconds(1), RenderDroneMod);
+        _ = new LiveTimer(this, TimeSpan.FromSeconds(1), RenderGameLink);
         AboutText.Text = $"RC-N1 Bridge {AppInfo.Version}";
         FoldersText.Text = $"Settings: {AppSettings.Folder}{Environment.NewLine}Logs: {FileLog.Folder}";
         Loaded += (_, _) => Render();
@@ -35,18 +35,14 @@ public partial class SettingsPage : UserControl
         int output = Array.FindIndex(Outputs, o => o.Target == App.Settings.Output);
         OutputBox.SelectedIndex = output;
         OutputHint.Text = Outputs[output].Hint;
-        DriverText.Text = !App.Pad.Enabled ? "Not used while the controller goes to the Drone mod only."
+        DriverText.Text = !App.Pad.Enabled ? "Not used while the controller goes to mods only."
             : App.Pad.IsConnected ? "ViGEmBus is installed. Games see the RC as a virtual Xbox 360 controller."
             : App.Pad.Problem ?? "Not installed.";
         _loading = false;
-        RenderDroneMod();
+        RenderGameLink();
     }
 
-    private void RenderDroneMod() =>
-        DroneModText.Text = !App.Settings.Output.UsesGameLink() ? "Off"
-            : App.GameLink is null ? "Unavailable, see the log"
-            : App.GameLink.ReaderConnected ? "Connected"
-            : "Not running. Start the game with the Drone mod installed.";
+    private void RenderGameLink() => GameLinkText.Text = AppInfo.GameLinkDetail();
 
     private void OnOutputChanged(object sender, SelectionChangedEventArgs e)
     {

@@ -65,8 +65,14 @@
                 </Grid>
                 <Border Margin="0,12,0,0" Padding="0,12,0,0" Style="{StaticResource RowDivider}">
                     <Grid>
-                        <TextBlock FontWeight="SemiBold" Text="Drone mod" />
-                        <TextBlock x:Name="DroneModText" HorizontalAlignment="Right" Style="{StaticResource Muted}" />
+                        <TextBlock FontWeight="SemiBold" Text="Mods reading the RC" />
+                        <TextBlock
+                            x:Name="GameLinkText"
+                            Margin="200,0,0,0"
+                            HorizontalAlignment="Right"
+                            Style="{StaticResource Muted}"
+                            TextAlignment="Right"
+                            TextWrapping="Wrap" />
                     </Grid>
                 </Border>
             </StackPanel>

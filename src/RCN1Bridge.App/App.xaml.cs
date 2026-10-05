@@ -199,7 +199,9 @@ public partial class App : Application
             _tray?.Dispose();
             Settings?.Flush();
             Engine?.Dispose();
-            GameLink?.Dispose();
+            // Unmapping under a reader that's still publishing is an access violation; exit frees it anyway
+            if (Engine?.IsStopped != false)
+                GameLink?.Dispose();
             Pad.Dispose();
             Log.Info("Exited");
             FileLog.Stop();

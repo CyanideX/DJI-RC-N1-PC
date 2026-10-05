@@ -78,6 +78,7 @@ internal sealed class RecordingOutput : IGamepadOutput
 {
     private readonly Lock _gate = new();
     private PadReport _last;
+    private PadHold _hold;
     public int Submits;
     public int Neutrals;
 
@@ -87,8 +88,18 @@ internal sealed class RecordingOutput : IGamepadOutput
     {
         lock (_gate)
         {
-            _last = input;
+            _last = _hold == PadHold.None ? input : PadReport.Neutral;
             Submits++;
+        }
+    }
+
+    public void SetHold(PadHold hold, bool on)
+    {
+        lock (_gate)
+        {
+            _hold = on ? _hold | hold : _hold & ~hold;
+            if (_hold != PadHold.None)
+                _last = PadReport.Neutral;
         }
     }
 

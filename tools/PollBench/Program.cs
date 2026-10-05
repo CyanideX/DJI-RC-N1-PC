@@ -134,7 +134,7 @@ static void GameLinkProbe(int seconds)
 {
     using var file = System.IO.MemoryMappedFiles.MemoryMappedFile.OpenExisting(GameLink.DefaultName);
     using var view = file.CreateViewAccessor(0, GameLink.Size);
-    Console.WriteLine($"magic {view.ReadUInt32(0):X8} version {view.ReadUInt32(4)}");
+    Console.WriteLine($"magic {view.ReadUInt32(0):X8} version {view.ReadUInt16(GameLink.MajorOffset)}.{view.ReadUInt16(GameLink.MinorOffset)}, writer pid {view.ReadInt32(GameLink.WriterPidOffset)}");
     var clock = Stopwatch.StartNew();
     uint lastSequence = 0;
     int writes = 0;
@@ -146,12 +146,11 @@ static void GameLinkProbe(int seconds)
             writes++;
             lastSequence = sequence;
         }
-        view.Write(GameLink.HeartbeatOffset, Stopwatch.GetTimestamp());
         Thread.Sleep(1);
     }
     long age = (long)Stopwatch.GetElapsedTime(view.ReadInt64(GameLink.TimestampOffset)).TotalMilliseconds;
-    Console.WriteLine($"{writes / (double)seconds:0}/s seen, flags {view.ReadUInt32(GameLink.FlagsOffset)}, mode {view.ReadByte(GameLink.ModeOffset)}, " +
-        $"buttons {view.ReadByte(GameLink.ButtonsOffset)}, left X {view.ReadSingle(GameLink.AxesOffset):0.00}, raw LH {view.ReadUInt16(GameLink.RawOffset)}, age {age} ms");
+    Console.WriteLine($"{writes / (double)seconds:0}/s seen, flags {view.ReadUInt32(GameLink.FlagsOffset)}, switch {view.ReadByte(GameLink.SwitchOffset)}, " +
+        $"held {view.ReadUInt16(GameLink.HeldOffset)}, left X {view.ReadSingle(GameLink.AxesOffset):0.00}, raw LH {view.ReadUInt16(GameLink.RawOffset)}, age {age} ms");
 }
 
 static bool StartLive(BridgeEngine engine, string name)

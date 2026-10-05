@@ -10,11 +10,17 @@ namespace RCN1Bridge.App.Services;
 
 public enum AppTheme { System, Light, Dark }
 
-public enum OutputTarget { XboxController, DroneMod, Both }
+public enum OutputTarget
+{
+    XboxController,
+    // 4.1 saved it under its old name
+    [JsonStringEnumMemberName("droneMod")] ModsOnly,
+    Both,
+}
 
 public static class OutputTargetExtensions
 {
-    public static bool UsesPad(this OutputTarget target) => target != OutputTarget.DroneMod;
+    public static bool UsesPad(this OutputTarget target) => target != OutputTarget.ModsOnly;
     public static bool UsesGameLink(this OutputTarget target) => target != OutputTarget.XboxController;
 }
 
@@ -37,7 +43,8 @@ public sealed class AppSettings
     public bool KeepInTray { get; set; } = true;
     public bool StartWithWindows { get; set; }
     public AppTheme Theme { get; set; } = AppTheme.System;
-    public OutputTarget Output { get; set; } = OutputTarget.XboxController;
+    // Both acts as the Xbox controller until a mod asks for the RC, so it's the safe default
+    public OutputTarget Output { get; set; } = OutputTarget.Both;
 
     // Off means the engine skips mapping entirely and sends the sticks straight through
     public bool MappingEnabled { get; set; }

@@ -16,6 +16,7 @@ public sealed class PadHost : IGamepadOutput, IDisposable
     private ViGEmClient? _client;
     private IXbox360Controller? _pad;
     private PadReport _sent;
+    private PadHold _hold;
 
     public bool IsConnected
     {
@@ -95,6 +96,16 @@ public sealed class PadHost : IGamepadOutput, IDisposable
             Send(PadReport.Neutral);
     }
 
+    public void SetHold(PadHold hold, bool on)
+    {
+        lock (_gate)
+        {
+            _hold = on ? _hold | hold : _hold & ~hold;
+            if (_hold != PadHold.None)
+                Send(PadReport.Neutral);
+        }
+    }
+
     // Off removes the controller from Windows entirely, so games and their prompts never see it
     public bool Enabled { get; private set; } = true;
 
@@ -137,8 +148,10 @@ public sealed class PadHost : IGamepadOutput, IDisposable
         }
     }
 
-    private void Send(in PadReport report)
+    private void Send(PadReport report)
     {
+        if (_hold != PadHold.None)
+            report = PadReport.Neutral;
         if (_pad is null || report == _sent)
             return;
         try

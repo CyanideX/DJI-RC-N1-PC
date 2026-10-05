@@ -77,9 +77,11 @@ public sealed class BridgeEngine : IDisposable
     private volatile bool _outputEnabled = true;
     private InputMapper? _mapper;
     private ProcessedInput _lastProcessed; // reader thread only
+    private ProcessedInput _lastCalibrated; // reader thread only
     private RawSticks _lastRaw; // reader thread only
     private volatile bool _gameLinkEnabled = true;
     private RcButtons? _lastButtons; // reader thread only
+    private bool _readerHold; // reader thread only
 
     public BridgeEngine(IGamepadOutput output)
         : this(output, PortScanner.Scan, port => new SerialLinkAdapter(SerialDevice.Open(port.PortName)))
@@ -138,8 +140,7 @@ public sealed class BridgeEngine : IDisposable
         set
         {
             _outputEnabled = value;
-            if (!value)
-                _output.SubmitNeutral();
+            _output.SetHold(PadHold.Paused, !value);
         }
     }
 
@@ -153,11 +154,18 @@ public sealed class BridgeEngine : IDisposable
 
     public void RequestScan() => _scanNow.Set();
 
+    public bool IsStopped => _thread is null || !_thread.IsAlive;
+
+    public bool PadHeldForReader => _gameLinkEnabled && GameLink is { ExclusiveReaderAttached: true };
+
     public void Dispose()
     {
         _stop.Cancel();
-        _thread?.Join(TimeSpan.FromSeconds(2));
+        bool stopped = _thread?.Join(TimeSpan.FromSeconds(2)) ?? true;
         _output.SubmitNeutral();
+        // A thread that missed the join would hit disposed handles and take the process down with it
+        if (!stopped)
+            return;
         _scanNow.Dispose();
         _replyArrived.Dispose();
         _stop.Dispose();
@@ -210,6 +218,7 @@ public sealed class BridgeEngine : IDisposable
         _processor.Reset();
         Mapper?.Reset();
         _lastProcessed = default;
+        _lastCalibrated = default;
         _lastRaw = default;
         _lastButtons = null;
         Latency.Clear();
@@ -251,7 +260,7 @@ public sealed class BridgeEngine : IDisposable
             _output.SubmitNeutral();
             PublishInput(default, ProcessedInput.Neutral);
             PublishButtons(null);
-            GameLink?.Publish(false, default, ProcessedInput.Neutral, null);
+            GameLink?.Publish(0, default, ProcessedInput.Neutral, ProcessedInput.Neutral, null);
             Log.Info($"Closed {port.PortName}");
         }
         return problem;
@@ -290,7 +299,7 @@ public sealed class BridgeEngine : IDisposable
         float elapsed = previous == 0 ? 0f : (float)Math.Min(Stopwatch.GetElapsedTime(previous, now).TotalSeconds, 0.1);
         Volatile.Write(ref _lastStickTimestamp, now);
 
-        var processed = _processor.Process(raw, elapsed);
+        var processed = _processor.Process(raw, elapsed, out _lastCalibrated);
         _lastProcessed = processed;
         _lastRaw = raw;
         Submit(now);
@@ -344,11 +353,18 @@ public sealed class BridgeEngine : IDisposable
     }
 
     private void PublishGameLink() =>
-        GameLink?.Publish(_gameLinkEnabled && _outputEnabled, _lastRaw, _lastProcessed, _lastButtons);
+        GameLink?.Publish(!_gameLinkEnabled ? GameLink.FlagOff : !_outputEnabled ? GameLink.FlagPaused : GameLink.FlagLive,
+            _lastRaw, _lastProcessed, _lastCalibrated, _lastButtons);
 
     private void Submit(long timestamp)
     {
-        if (!_outputEnabled)
+        bool held = PadHeldForReader;
+        if (held != _readerHold)
+        {
+            _readerHold = held;
+            _output.SetHold(PadHold.Reader, held);
+        }
+        if (!_outputEnabled || held)
             return;
         var mapper = Mapper;
         var report = mapper is null

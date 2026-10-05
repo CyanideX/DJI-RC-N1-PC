@@ -146,7 +146,7 @@
                     </StackPanel>
                     <StackPanel>
                         <TextBlock x:Name="ModText" FontSize="20" FontWeight="SemiBold" />
-                        <ui:TextBlock Appearance="Secondary" Text="Drone mod" />
+                        <ui:TextBlock Appearance="Secondary" Text="Game link" />
                     </StackPanel>
                 </StackPanel>
             </DockPanel>

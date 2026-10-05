@@ -183,9 +183,9 @@ public class HotPathTests
         {
             if (StickDecoder.TryDecode(frame, out var raw))
             {
-                var processed = processor.Process(raw, 0.007f);
+                var processed = processor.Process(raw, 0.007f, out var calibrated);
                 sink += PadReport.FromSticks(processed).LeftX + mapper.Map(processed, buttons, 0).LeftX;
-                link.Publish(true, raw, processed, buttons);
+                link.Publish(GameLink.FlagLive, raw, processed, calibrated, buttons);
             }
         });
 
