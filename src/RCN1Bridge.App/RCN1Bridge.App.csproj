@@ -9,7 +9,7 @@
     <AssemblyTitle>RC-N1 Bridge</AssemblyTitle>
     <RootNamespace>RCN1Bridge.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\icon-grey.ico</ApplicationIcon>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <!-- WPF owns DPI through the manifest; the WinForms analyzer only fires because of the tray icon -->
@@ -24,9 +24,8 @@
 
   <ItemGroup>
     <Resource Include="Assets\icon-256.png" />
-    <Resource Include="Assets\icon.ico" />
     <Resource Include="Assets\icon-256-light.png" />
-    <Resource Include="Assets\icon-light.ico" />
+    <Resource Include="Assets\icon-grey.ico" />
   </ItemGroup>
 
   <ItemGroup>

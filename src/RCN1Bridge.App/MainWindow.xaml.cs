@@ -31,6 +31,8 @@ public partial class MainWindow : FluentWindow
         MaxHeight = SystemParameters.WorkArea.Height;
         Navigate(_home);
         RenderState();
+        // Taskbar button; grey reads on light and dark taskbars alike, so only the title icon follows the theme
+        Icon = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/icon-grey.ico"));
         ApplyIconTheme();
         ApplicationThemeManager.Changed += (_, _) => Dispatcher.BeginInvoke(ApplyIconTheme);
         App.Engine.StatusChanged += _ => Dispatcher.BeginInvoke(RenderState);
@@ -95,7 +97,6 @@ public partial class MainWindow : FluentWindow
     {
         string suffix = ApplicationThemeManager.GetAppTheme() == ApplicationTheme.Dark ? "-light" : "";
         TitleIcon.Source = new BitmapImage(new Uri($"pack://application:,,,/Assets/icon-256{suffix}.png"));
-        Icon = BitmapFrame.Create(new Uri($"pack://application:,,,/Assets/icon{suffix}.ico"));
     }
 
     private void RenderState()

@@ -1,5 +1,4 @@
 using System.Windows;
-using Microsoft.Win32;
 using Forms = System.Windows.Forms;
 
 namespace RCN1Bridge.App.Services;
@@ -22,7 +21,6 @@ public sealed class TrayIcon : IDisposable
             Text = "RC-N1 Bridge",
             Visible = true,
         };
-        SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
 
         _sendToGame = new Forms.ToolStripMenuItem("Send to game") { Checked = true };
         _sendToGame.Click += (_, _) => SendToGameChanged?.Invoke(!_sendToGame.Checked);
@@ -55,31 +53,18 @@ public sealed class TrayIcon : IDisposable
 
     public void Notify(string title, string body) => _icon.ShowBalloonTip(5000, title, body, Forms.ToolTipIcon.None);
 
-    // The taskbar has its own light/dark setting, separate from the app theme
+    // Grey reads on both light and dark taskbars, so there's no theme to follow
     private static System.Drawing.Icon LoadIcon()
     {
-        using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-        bool lightTaskbar = key?.GetValue("SystemUsesLightTheme") is 1;
-        var resource = Application.GetResourceStream(new Uri($"pack://application:,,,/Assets/{(lightTaskbar ? "icon.ico" : "icon-light.ico")}"));
+        var resource = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/icon-grey.ico"));
         if (resource is null)
             return System.Drawing.SystemIcons.Application;
         using var stream = resource.Stream;
         return new System.Drawing.Icon(stream, Forms.SystemInformation.SmallIconSize);
     }
 
-    private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
-    {
-        if (e.Category != UserPreferenceCategory.General)
-            return;
-        var old = _icon.Icon;
-        _icon.Icon = LoadIcon();
-        old?.Dispose();
-    }
-
     public void Dispose()
     {
-        // Static event; leaving it attached keeps this object alive
-        SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
         _icon.Visible = false;
         _icon.Dispose();
     }
